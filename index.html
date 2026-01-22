@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>삼이일</title>
+    <style>
+        :root {
+            --primary-color: #4f46e5; --primary-light-color: #e0e7ff; --border-color: #ddd;
+            --background-light: #f4f4f4; --background-white: #fff; --text-dark: #333; --text-light: #666;
+            --green-color: #16a34a; --red-color: #dc2626;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--background-light); color: var(--text-dark); display: flex; flex-direction: column; height: 100vh; }
+        .header { display: flex; align-items: center; gap: 10px; background-color: var(--background-white); padding: 10px 15px; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); z-index: 10; }
+        #search-input { flex-grow: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+        .settings-menu { position: relative; }
+        #settings-button { background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; line-height: 1; color: var(--text-light); }
+        #settings-dropdown { display: none; position: absolute; right: 0; top: 100%; background-color: var(--background-white); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 100; min-width: 200px; }
+        #settings-dropdown button { display: block; width: 100%; padding: 12px 15px; border: none; background: none; text-align: left; cursor: pointer; font-size: 14px; }
+        #settings-dropdown button:hover { background-color: #f0f0f0; }
+        #delete-tab-button { color: var(--red-color); }
+        .tabs-container { padding: 0 10px; background-color: var(--background-white); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 5px; overflow-x: auto; }
+        .tab { padding: 12px 15px; cursor: pointer; border-bottom: 3px solid transparent; font-size: 15px; white-space: nowrap; }
+        .tab.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: 600; }
+        #add-file-tab { font-size: 24px; font-weight: bold; color: var(--primary-color); padding: 5px 15px; cursor: pointer; border-radius: 5px; }
+        #add-file-tab:hover { background-color: #f0f0f0; }
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+        #sidebar { width: 320px; background-color: var(--background-white); border-right: 1px solid var(--border-color); overflow-y: auto; flex-shrink: 0; }
+        .sidebar-item { padding: 15px 20px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 15px; overflow: hidden; text-overflow: ellipsis; }
+        .sidebar-item:hover { background-color: #f0f0f0; }
+        .sidebar-item.active { background-color: var(--primary-light-color); font-weight: 600; color: var(--primary-color); border-right: 3px solid var(--primary-color); }
+        #content-area { flex: 1; padding: 25px; overflow-y: auto; background-color: #fafafa; }
+        #content-wrapper, #edit-form { display: none; }
+        #content-wrapper.visible, #edit-form.visible { display: block; }
+        .actions-container { margin-bottom: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .action-button { background-color: var(--primary-color); color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        #back-to-list-button { display: none; background-color: var(--text-light); }
+        #char-count { font-size: 14px; color: var(--text-light); background-color: #eef2ff; padding: 8px 12px; border-radius: 5px; }
+        #content-title { font-size: 24px; font-weight: bold; margin: 0; }
+        #content-body { background-color: var(--background-white); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; white-space: pre-wrap; word-wrap: break-word; font-size: 16px; line-height: 1.7; margin-top: 15px; }
+        .image-container { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .image-container img { width: 100%; height: auto; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-color); }
+        #edit-form label { font-size: 14px; font-weight: 600; color: #555; display: block; margin-bottom: 5px; }
+        #edit-form input, #edit-form textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 15px; font-family: inherit; }
+        #edit-content-input { min-height: 250px; resize: vertical; line-height: 1.7; }
+        #edit-image-urls-textarea { min-height: 80px; resize: vertical; }
+        .file-loader { padding: 40px 20px; text-align: center; }
+        .file-loader-label { display: inline-block; background: var(--primary-color); color: white; padding: 15px 30px; border-radius: 8px; cursor: pointer; margin-bottom: 15px; font-size: 16px; }
+        #file-input { display: none; }
+        @media (max-width: 768px) {
+            .main-container.content-mode #sidebar { display: none; }
+            .main-container:not(.content-mode) #content-area { display: none; }
+            #sidebar, #content-area { width: 100%; border-right: none; }
+            #back-to-list-button { display: inline-block; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <input type="text" id="search-input" placeholder="파일을 불러와주세요..." disabled>
+        <div class="settings-menu" id="settings-menu" style="display: none;">
+            <button id="settings-button" title="설정">⚙️</button>
+            <div id="settings-dropdown">
+                <button id="add-note-button">➕ 새 노트 추가</button>
+                <button id="add-tab-button">📂 새 탭 추가</button>
+                <button id="export-tab-button">현재 탭 다운로드 (.json)</button>
+                <button id="delete-tab-button">현재 탭 삭제</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="tabs-container" id="tabs-container"></div>
+
+    <div class="main-container" id="main-container">
+        <aside id="sidebar"></aside>
+        <main id="content-area">
+            <div id="initial-loader" class="file-loader">
+                <label for="file-input" class="file-loader-label">JSON 파일 불러오기</label>
+                <input type="file" id="file-input" accept=".json" multiple>
+                <p>json 파일을 선택하세요.</p>
+            </div>
+            <div id="content-wrapper">
+                 <div class="actions-container">
+                    <button id="back-to-list-button" class="action-button">목록</button>
+                    <button id="copy-button" class="action-button">copy</button>
+                    <button id="edit-button" class="action-button" style="background-color: var(--green-color);">edit</button>
+                    <span id="char-count"></span>
+                </div>
+                <h2 id="content-title"></h2>
+                <pre id="content-body"></pre>
+                <div id="image-container" class="image-container"></div>
+            </div>
+            <div id="edit-form">
+                <label for="edit-title-input">제목</label>
+                <input type="text" id="edit-title-input">
+                
+                <label for="edit-content-input">내용</label>
+                <textarea id="edit-content-input"></textarea>
+                
+                <label for="edit-image-urls-textarea">이미지 URL (한 줄에 하나씩)</label>
+                <textarea id="edit-image-urls-textarea" placeholder="https://example.com/image1.png&#10;https://example.com/image2.jpg"></textarea>
+
+                <div class="actions-container">
+                    <button id="save-button" class="action-button" style="background-color: var(--green-color);">저장</button>
+                    <button id="cancel-button" class="action-button" style="background-color: var(--text-light);">취소</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const LOCAL_STORAGE_KEY = 'privateNotesData';
+        const getEl = (id) => document.getElementById(id);
+        
+        // DOM Elements
+        const fileInput = getEl('file-input'), searchInput = getEl('search-input'), tabsContainer = getEl('tabs-container');
+        const sidebar = getEl('sidebar'), mainContainer = getEl('main-container'), initialLoader = getEl('initial-loader');
+        const contentWrapper = getEl('content-wrapper'), imageContainer = getEl('image-container'), contentTitle = getEl('content-title');
+        const contentBody = getEl('content-body'), copyButton = getEl('copy-button'), charCount = getEl('char-count');
+        const backToListButton = getEl('back-to-list-button'), editButton = getEl('edit-button');
+        const editForm = getEl('edit-form'), editTitleInput = getEl('edit-title-input'), editContentInput = getEl('edit-content-input'), editImageUrlsTextarea = getEl('edit-image-urls-textarea');
+        const saveButton = getEl('save-button'), cancelButton = getEl('cancel-button');
+        const settingsMenu = getEl('settings-menu'), settingsButton = getEl('settings-button'), settingsDropdown = getEl('settings-dropdown');
+        const addTabButton = getEl('add-tab-button'), addNoteButton = getEl('add-note-button'), exportTabButton = getEl('export-tab-button'), deleteTabButton = getEl('delete-tab-button');
+        
+        let loadedData = {}, activeTab = null, currentNote = null, editingNoteIndex = null;
+
+        const saveDataToLocal = () => localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(loadedData));
+        const loadDataFromLocal = () => {
+            const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (savedData) loadedData = JSON.parse(savedData);
+            const filenames = Object.keys(loadedData);
+            tabsContainer.innerHTML = '';
+            createAddFileTab();
+            if (filenames.length > 0) {
+                setupUIForLoadedData();
+                filenames.forEach(createTab);
+                switchTab(filenames[0]);
+            }
+        };
+
+        const setupUIForLoadedData = () => {
+            initialLoader.style.display = 'none';
+            settingsMenu.style.display = 'block';
+            searchInput.disabled = false;
+            searchInput.placeholder = '제목 또는 내용으로 검색...';
+        };
+
+        const createAddFileTab = () => {
+            const addTab = document.createElement('div');
+            addTab.id = 'add-file-tab'; addTab.textContent = '+'; addTab.title = '파일 추가하기';
+            addTab.onclick = () => fileInput.click();
+            tabsContainer.appendChild(addTab);
+        };
+
+        const switchViewMode = (mode) => {
+            contentWrapper.classList.toggle('visible', mode === 'view');
+            editForm.classList.toggle('visible', mode === 'edit');
+        };
+
+        const handleFileSelect = (event) => {
+            const files = Array.from(event.target.files);
+            if (files.length === 0) return;
+            setupUIForLoadedData();
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (!Array.isArray(data)) throw new Error('JSON is not an array.');
+                        const filename = file.name;
+                        loadedData[filename] = data;
+                        if (!document.querySelector(`.tab[data-filename="${filename}"]`)) createTab(filename);
+                        saveDataToLocal();
+                        switchTab(filename);
+                    } catch (err) { alert(`'${file.name}' 처리 오류: 유효한 JSON 배열이 아닙니다.`); }
+                };
+                reader.readAsText(file);
+            });
+            fileInput.value = '';
+        };
+
+        const createTab = (filename) => {
+            const tabName = filename.replace('.json', '');
+            const tab = document.createElement('div');
+            tab.className = 'tab'; tab.textContent = tabName; tab.dataset.filename = filename;
+            tab.addEventListener('click', () => switchTab(filename));
+            tabsContainer.insertBefore(tab, getEl('add-file-tab'));
+        };
+
+        const switchTab = (filename) => {
+            activeTab = filename;
+            document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.filename === filename));
+            populateSidebar(loadedData[filename] || []);
+            switchViewMode('none');
+            getEl('content-wrapper').classList.remove('visible');
+            showSidebarView();
+        };
+
+        const populateSidebar = (notes) => {
+            sidebar.innerHTML = '';
+            notes.forEach((note, index) => {
+                const item = document.createElement('div');
+                item.className = 'sidebar-item'; item.textContent = note.title;
+                item.addEventListener('click', () => displayContent(note, item, index));
+                sidebar.appendChild(item);
+            });
+        };
+
+        const displayContent = (note, clickedItem, index) => {
+            currentNote = note; editingNoteIndex = index;
+            document.querySelectorAll('.sidebar-item.active').forEach(i => i.classList.remove('active'));
+            clickedItem.classList.add('active');
+
+            imageContainer.innerHTML = '';
+            if (note.imageUrls && note.imageUrls.length > 0) {
+                note.imageUrls.forEach(url => {
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.alt = note.title + ' 이미지';
+                    imageContainer.appendChild(img);
+                });
+                imageContainer.style.display = 'grid';
+            } else {
+                imageContainer.style.display = 'none';
+            }
+
+            contentTitle.textContent = note.title;
+            contentBody.textContent = note.content;
+            charCount.textContent = `${note.content?.length || 0}자`;
+            switchViewMode('view');
+            showContentView();
+        };
+        
+        const enterEditMode = () => {
+            if (!currentNote) return;
+            editTitleInput.value = currentNote.title;
+            editContentInput.value = currentNote.content;
+            editImageUrlsTextarea.value = (currentNote.imageUrls || []).join('\n');
+            switchViewMode('edit');
+        };
+
+        const saveNote = () => {
+            const imageUrls = editImageUrlsTextarea.value.trim().split('\n').filter(url => url.trim() !== '');
+            const updatedNote = {
+                ...currentNote,
+                title: editTitleInput.value,
+                content: editContentInput.value,
+            };
+
+            if (imageUrls.length > 0) {
+                updatedNote.imageUrls = imageUrls;
+            } else {
+                delete updatedNote.imageUrls;
+            }
+
+            loadedData[activeTab][editingNoteIndex] = updatedNote;
+            saveDataToLocal();
+            currentNote = updatedNote;
+            populateSidebar(loadedData[activeTab]);
+            displayContent(currentNote, document.querySelector(`.sidebar-item:nth-child(${editingNoteIndex + 1})`), editingNoteIndex);
+        };
+
+        const addNewNote = () => {
+            if (!activeTab) return;
+            settingsDropdown.style.display = 'none';
+            const newNote = { title: "새 노트", content: "" };
+            if(!loadedData[activeTab]) loadedData[activeTab] = [];
+            loadedData[activeTab].unshift(newNote);
+            saveDataToLocal();
+            populateSidebar(loadedData[activeTab]);
+            displayContent(newNote, document.querySelector('.sidebar-item'), 0);
+            enterEditMode();
+        };
+
+        const handleSearch = (e) => {
+            if (!activeTab) return;
+            const searchTerm = e.target.value.toLowerCase();
+            const filteredNotes = (loadedData[activeTab] || []).filter(note =>
+                (note.title && note.title.toLowerCase().includes(searchTerm)) ||
+                (note.content && note.content.toLowerCase().includes(searchTerm))
+            );
+            populateSidebar(filteredNotes);
+        };
+        
+        const addNewTab = () => {
+            settingsDropdown.style.display = 'none';
+            const tabName = prompt("새 탭의 이름을 입력하세요:");
+            if (!tabName || tabName.trim() === '') return;
+            const filename = tabName.trim() + '.json';
+            if (loadedData[filename]) {
+                alert("오류: 이미 존재하는 탭 이름입니다.");
+                return;
+            }
+            loadedData[filename] = [];
+            saveDataToLocal();
+            createTab(filename);
+            switchTab(filename);
+        };
+
+        const exportTabData = () => {
+            if (!activeTab) return;
+            const data = loadedData[activeTab];
+            const jsonString = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = activeTab;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a); URL.revokeObjectURL(url);
+        };
+        const deleteCurrentTab = () => {
+            if (!activeTab || !confirm(`'${activeTab.replace('.json','')}' 탭을 정말로 삭제하시겠습니까?`)) return;
+            delete loadedData[activeTab];
+            saveDataToLocal();
+            location.reload();
+        };
+        
+        const showContentView = () => mainContainer.classList.add('content-mode');
+        const showSidebarView = () => mainContainer.classList.remove('content-mode');
+
+        // Event Listeners
+        fileInput.addEventListener('change', handleFileSelect);
+        searchInput.addEventListener('input', handleSearch);
+        backToListButton.addEventListener('click', showSidebarView);
+        addTabButton.addEventListener('click', addNewTab);
+        addNoteButton.addEventListener('click', addNewNote);
+        editButton.addEventListener('click', enterEditMode);
+        saveButton.addEventListener('click', saveNote);
+        cancelButton.addEventListener('click', () => switchViewMode('view'));
+        settingsButton.addEventListener('click', (e) => { e.stopPropagation(); settingsDropdown.style.display = settingsDropdown.style.display === 'block' ? 'none' : 'block'; });
+        document.addEventListener('click', () => { settingsDropdown.style.display = 'none'; });
+        exportTabButton.addEventListener('click', exportTabData);
+        deleteTabButton.addEventListener('click', deleteCurrentTab);
+        copyButton.addEventListener('click', () => {
+            if (!currentNote || !currentNote.content) return;
+            navigator.clipboard.writeText(currentNote.content).then(() => {
+                copyButton.textContent = 'copied!'; setTimeout(() => { copyButton.textContent = 'copy'; }, 1500);
+            });
+        });
+        
+        loadDataFromLocal();
+    });
+    </script>
+</body>
+</html>
