@@ -341,6 +341,60 @@
         });
         
         loadDataFromLocal();
+        // --- [NEW] Swipe Back Gesture for Mobile ---
+function initSwipeBackGesture() {
+    // 설정값: 이 값을 조절하여 민감도를 바꿀 수 있습니다.
+    const SWIPE_EDGE_ZONE = 50; // 스와이프가 시작되어야 하는 화면 왼쪽 가장자리 영역 (px)
+    const SWIPE_THRESHOLD = 80; // 스와이프로 인정되기 위한 최소한의 가로 이동 거리 (px)
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isSwiping = false;
+
+    // 제스처는 콘텐츠 영역에서만 동작하도록 설정
+    const contentArea = getEl('content-area');
+
+    contentArea.addEventListener('touchstart', (e) => {
+        // 멀티터치(두 손가락 이상)는 무시
+        if (e.touches.length > 1) return;
+
+        // 화면이 콘텐츠 보기 모드일 때만 제스처를 감지
+        if (mainContainer.classList.contains('content-mode')) {
+            const startX = e.touches[0].clientX;
+            // 스와이프가 왼쪽 가장자리 영역에서 시작되었는지 확인
+            if (startX < SWIPE_EDGE_ZONE) {
+                touchStartX = startX;
+                touchStartY = e.touches[0].clientY;
+                isSwiping = true;
+            }
+        }
+    });
+
+    contentArea.addEventListener('touchmove', (e) => {
+        if (!isSwiping) return;
+
+        const deltaX = e.touches[0].clientX - touchStartX;
+        const deltaY = e.touches[0].clientY - touchStartY;
+
+        // 위아래 스크롤과 충돌하지 않도록, 수평 움직임이 수직 움직임보다 클 때만 스와이프로 간주
+        if (Math.abs(deltaX) < Math.abs(deltaY)) {
+            isSwiping = false; // 수직 스크롤로 판단하고 스와이프 취소
+        }
+    });
+
+    contentArea.addEventListener('touchend', (e) => {
+        if (!isSwiping) return;
+        
+        isSwiping = false;
+        const touchEndX = e.changedTouches[0].clientX;
+        const swipeDistance = touchEndX - touchStartX;
+
+        // 충분한 거리를 오른쪽으로 스와이프 했는지 확인
+        if (swipeDistance > SWIPE_THRESHOLD) {
+            showSidebarView(); // 기존에 만들어둔 '목록 보기' 함수를 호출
+        }
+    });
+}
     });
     </script>
 </body>
