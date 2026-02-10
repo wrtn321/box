@@ -12,7 +12,7 @@
             --background-light: #f9fafb; --background-white: #fff; --text-dark: #1f2937; --text-light: #6b7280;
             --green-color: #16a34a; --red-color: #dc2626; --blue-color: #2563eb;
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--background-light); color: var(--text-dark); }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--background-light); color: var(--text-dark); display: flex; flex-direction: column; min-height: 100vh; }
         .header { display: flex; align-items: center; gap: 10px; background-color: var(--background-white); padding: 10px 20px; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 10; }
         #search-input { flex-grow: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
         .header-actions button { background-color: var(--primary-color); color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; white-space: nowrap; }
@@ -21,25 +21,32 @@
         .tab.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: 600; }
         #add-file-tab { font-size: 24px; font-weight: bold; color: var(--primary-color); padding: 5px 15px; cursor: pointer; border-radius: 5px; }
         #add-file-tab:hover { background-color: #f0f0f0; }
-        main { padding: 20px; max-width: 900px; margin: 0 auto; }
+        main { padding: 20px; max-width: 900px; margin: 0 auto; flex-grow: 1; width: 100%; box-sizing: border-box; }
         .file-loader { padding: 40px 20px; text-align: center; background-color: var(--background-white); border-radius: 8px; border: 2px dashed var(--border-color); }
         .file-loader-label { display: inline-block; background: var(--primary-color); color: white; padding: 15px 30px; border-radius: 8px; cursor: pointer; margin-bottom: 15px; font-size: 16px; }
         #file-input { display: none; }
         .note-item { background-color: var(--background-white); border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); overflow: hidden; }
-        .note-header { display: flex; align-items: center; padding: 15px; cursor: pointer; user-select: none; }
+        .note-header { display: flex; align-items: center; padding: 15px; user-select: none; }
         .drag-handle { cursor: grab; font-size: 20px; color: var(--text-light); padding-right: 15px; }
-        .note-title-text { font-weight: 600; flex-grow: 1; }
+        .note-title-text { font-weight: 600; flex-grow: 1; cursor: pointer; }
         .note-char-count { font-size: 12px; color: var(--text-light); background-color: #f3f4f6; padding: 3px 8px; border-radius: 10px; margin-left: 10px; }
         .note-content { display: none; padding: 0 20px 20px 20px; border-top: 1px solid var(--border-color); }
         .note-item.expanded .note-content { display: block; }
         .note-summary { white-space: pre-wrap; word-wrap: break-word; font-size: 15px; line-height: 1.7; padding: 15px; background-color: #f9fafb; border-radius: 5px; margin-bottom: 15px; }
-        .edit-area textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 10px; font-family: inherit; min-height: 150px; resize: vertical; line-height: 1.7; }
-        .actions-container { display: flex; gap: 10px; justify-content: flex-end; }
+        .edit-area .form-group { margin-bottom: 15px; }
+        .edit-area label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 5px; }
+        .edit-area input, .edit-area textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 5px; font-family: inherit; }
+        .edit-area textarea { min-height: 150px; resize: vertical; line-height: 1.7; }
+        .char-counter { font-size: 12px; color: var(--text-light); text-align: right; margin-top: 4px; }
+        .char-counter.limit-exceeded { color: var(--red-color); font-weight: bold; }
+        .actions-container { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
         .action-button { border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; }
         .btn-edit { background-color: var(--blue-color); color: white; }
-        .btn-delete { background-color: var(--red-color); color: white; }
+        .btn-delete { background-color: transparent; color: var(--red-color); font-size: 24px; font-weight: bold; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; margin-left: auto; }
+        .btn-delete:hover { background-color: #fee2e2; }
         .btn-save { background-color: var(--green-color); color: white; }
         .btn-cancel { background-color: var(--text-light); color: white; }
+        footer { text-align: center; padding: 20px; font-size: 14px; color: var(--text-light); border-top: 1px solid var(--border-color); margin-top: 20px; background-color: var(--background-white); }
         .hidden { display: none !important; }
     </style>
 </head>
@@ -62,17 +69,22 @@
         </div>
         <div id="notes-container"></div>
     </main>
+    
+    <footer>
+        <p>&copy; 2024 Crack Memory Editor. All rights reserved.</p>
+    </footer>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const LOCAL_STORAGE_KEY = 'crackMemoryEditorData';
+        const TITLE_LIMIT = 20;
+        const SUMMARY_LIMIT = 300;
         const getEl = id => document.getElementById(id);
 
-        // DOM Elements
         const fileInput = getEl('file-input'), searchInput = getEl('search-input');
-        const tabsContainer = getEl('tabs-container'), mainContainer = getEl('main-container');
-        const initialLoader = getEl('initial-loader'), notesContainer = getEl('notes-container');
-        const addNoteButton = getEl('add-note-button'), exportTabButton = getEl('export-tab-button');
+        const tabsContainer = getEl('tabs-container'), initialLoader = getEl('initial-loader');
+        const notesContainer = getEl('notes-container'), addNoteButton = getEl('add-note-button');
+        const exportTabButton = getEl('export-tab-button');
 
         let loadedData = {}, activeTab = null;
 
@@ -115,24 +127,13 @@
                 reader.onload = e => {
                     try {
                         const data = JSON.parse(e.target.result);
-                        // 유저스크립트 JSON 형식 확인 및 데이터 추출
                         if (data && typeof data === 'object' && Array.isArray(data.longTerm)) {
                             const filename = file.name;
-                            // summary를 content로 매핑하여 호환성 확보
-                            loadedData[filename] = data.longTerm.map(item => ({
-                                title: item.title,
-                                summary: item.summary
-                                // 다른 속성들은 유지
-                            }));
-
+                            loadedData[filename] = data.longTerm.map(item => ({ title: item.title, summary: item.summary }));
                             if (!document.querySelector(`.tab[data-filename="${filename}"]`)) createTab(filename);
                             saveDataToLocal();
-                            if(!activeTab) {
-                                setupUIForLoadedData();
-                                switchTab(filename);
-                            } else {
-                                switchTab(filename);
-                            }
+                            if(!activeTab) setupUIForLoadedData();
+                            switchTab(filename);
                         } else {
                             throw new Error('longTerm 배열을 찾을 수 없습니다.');
                         }
@@ -162,18 +163,17 @@
         const renderNotes = (notes) => {
             notesContainer.innerHTML = '';
             if (!notes) return;
-
             notes.forEach((note, index) => {
                 const item = document.createElement('div');
                 item.className = 'note-item';
                 item.dataset.index = index;
-
                 const summaryLength = note.summary?.length || 0;
                 
                 item.innerHTML = `
                     <div class="note-header">
                         <span class="drag-handle">⠿</span>
                         <span class="note-title-text">${note.title || '제목 없음'}</span>
+                        <button class="action-button btn-delete">×</button>
                         <span class="note-char-count">${summaryLength}자</span>
                     </div>
                     <div class="note-content">
@@ -181,11 +181,19 @@
                             <pre class="note-summary">${note.summary || ''}</pre>
                             <div class="actions-container">
                                 <button class="action-button btn-edit">수정</button>
-                                <button class="action-button btn-delete">삭제</button>
                             </div>
                         </div>
                         <div class="edit-area" style="display: none;">
-                            <textarea class="edit-summary-input">${note.summary || ''}</textarea>
+                            <div class="form-group">
+                                <label for="edit-title-${index}">제목</label>
+                                <input type="text" id="edit-title-${index}" class="edit-title-input" value="${note.title || ''}">
+                                <div class="char-counter title-char-counter">0 / ${TITLE_LIMIT}</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-summary-${index}">내용</label>
+                                <textarea id="edit-summary-${index}" class="edit-summary-input">${note.summary || ''}</textarea>
+                                <div class="char-counter summary-char-counter">0 / ${SUMMARY_LIMIT}</div>
+                            </div>
                             <div class="actions-container">
                                 <button class="action-button btn-save">저장</button>
                                 <button class="action-button btn-cancel">취소</button>
@@ -198,36 +206,44 @@
             attachNoteEventListeners();
         };
         
+        const updateCharCount = (inputEl, counterEl, limit) => {
+            const count = inputEl.value.length;
+            counterEl.textContent = `${count} / ${limit}`;
+            counterEl.classList.toggle('limit-exceeded', count > limit);
+        };
+
         const attachNoteEventListeners = () => {
             document.querySelectorAll('.note-item').forEach(item => {
                 const index = parseInt(item.dataset.index, 10);
-                const header = item.querySelector('.note-header');
+                const titleText = item.querySelector('.note-title-text');
                 const viewArea = item.querySelector('.view-area');
                 const editArea = item.querySelector('.edit-area');
+                const titleInput = item.querySelector('.edit-title-input');
+                const summaryInput = item.querySelector('.edit-summary-input');
+                const titleCounter = item.querySelector('.title-char-counter');
+                const summaryCounter = item.querySelector('.summary-char-counter');
 
-                header.addEventListener('click', e => {
-                    // 드래그 핸들을 클릭한 경우는 토글하지 않음
-                    if (e.target.classList.contains('drag-handle')) return;
-                    item.classList.toggle('expanded');
-                });
+                titleText.addEventListener('click', () => item.classList.toggle('expanded'));
                 
                 item.querySelector('.btn-edit').addEventListener('click', () => {
                     viewArea.style.display = 'none';
                     editArea.style.display = 'block';
+                    updateCharCount(titleInput, titleCounter, TITLE_LIMIT);
+                    updateCharCount(summaryInput, summaryCounter, SUMMARY_LIMIT);
                 });
 
                 item.querySelector('.btn-cancel').addEventListener('click', () => {
                     editArea.style.display = 'none';
                     viewArea.style.display = 'block';
-                    // 변경사항 취소 (원래 내용으로 되돌리기)
-                    editArea.querySelector('.edit-summary-input').value = loadedData[activeTab][index].summary;
+                    titleInput.value = loadedData[activeTab][index].title;
+                    summaryInput.value = loadedData[activeTab][index].summary;
                 });
                 
                 item.querySelector('.btn-save').addEventListener('click', () => {
-                    const newSummary = item.querySelector('.edit-summary-input').value;
-                    loadedData[activeTab][index].summary = newSummary;
+                    loadedData[activeTab][index].title = titleInput.value;
+                    loadedData[activeTab][index].summary = summaryInput.value;
                     saveDataToLocal();
-                    renderNotes(loadedData[activeTab]); // 전체 다시 렌더링하여 순서와 내용 반영
+                    renderNotes(loadedData[activeTab]);
                 });
                 
                 item.querySelector('.btn-delete').addEventListener('click', () => {
@@ -237,18 +253,20 @@
                         renderNotes(loadedData[activeTab]);
                     }
                 });
+                
+                titleInput.addEventListener('input', () => updateCharCount(titleInput, titleCounter, TITLE_LIMIT));
+                summaryInput.addEventListener('input', () => updateCharCount(summaryInput, summaryCounter, SUMMARY_LIMIT));
             });
         };
 
         const initializeSortable = () => {
             new Sortable(notesContainer, {
-                handle: '.drag-handle',
-                animation: 150,
+                handle: '.drag-handle', animation: 150,
                 onEnd: evt => {
                     const [movedItem] = loadedData[activeTab].splice(evt.oldIndex, 1);
                     loadedData[activeTab].splice(evt.newIndex, 0, movedItem);
                     saveDataToLocal();
-                    renderNotes(loadedData[activeTab]); // 순서 변경 후 다시 렌더링
+                    renderNotes(loadedData[activeTab]);
                 },
             });
         };
@@ -271,26 +289,22 @@
             if (newTitle) {
                 const newNote = { title: newTitle, summary: "" };
                 if (!loadedData[activeTab]) loadedData[activeTab] = [];
-                loadedData[activeTab].unshift(newNote); // 맨 위에 추가
+                loadedData[activeTab].unshift(newNote);
                 saveDataToLocal();
                 renderNotes(loadedData[activeTab]);
-                // 새로 추가된 항목을 바로 펼쳐서 편집 모드로 진입
                 const firstItem = notesContainer.querySelector('.note-item');
                 if (firstItem) {
                     firstItem.classList.add('expanded');
                     firstItem.querySelector('.view-area').style.display = 'none';
                     firstItem.querySelector('.edit-area').style.display = 'block';
-                    firstItem.querySelector('.edit-summary-input').focus();
+                    firstItem.querySelector('.edit-title-input').focus();
                 }
             }
         });
 
         exportTabButton.addEventListener('click', () => {
             if (!activeTab || !loadedData[activeTab]) return;
-            // 내보낼 때는 원본 형식인 { longTerm: [...] } 으로 재구성
-            const dataToExport = {
-                longTerm: loadedData[activeTab]
-            };
+            const dataToExport = { longTerm: loadedData[activeTab] };
             const jsonString = JSON.stringify(dataToExport, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -300,11 +314,9 @@
             document.body.removeChild(a); URL.revokeObjectURL(url);
         });
 
-        // Event Listeners
         fileInput.addEventListener('change', handleFileSelect);
         searchInput.addEventListener('input', handleSearch);
-
-        // Initial setup
+        
         loadDataFromLocal();
         initializeSortable();
     });
