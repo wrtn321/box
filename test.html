@@ -34,7 +34,7 @@
         .note-header { display: flex; align-items: center; padding: 15px; user-select: none; }
         .drag-handle { cursor: grab; font-size: 20px; color: var(--text-light); padding-right: 15px; }
         .note-title-text { font-weight: 600; flex-grow: 1; cursor: pointer; }
-        .note-char-count { font-size: 12px; color: var(--text-light); background-color: #f3f4f6; padding: 3px 8px; border-radius: 10px; margin-left: 10px; }
+        .note-char-count { font-size: 12px; color: var(--text-light); background-color: #f3f4f6; padding: 3px 8px; border-radius: 10px; margin-left: auto; }
         .note-content { display: none; padding: 0 20px 20px 20px; border-top: 1px solid var(--border-color); }
         .note-item.expanded .note-content { display: block; }
         .note-summary { white-space: pre-wrap; word-wrap: break-word; font-size: 15px; line-height: 1.7; padding: 15px; background-color: #f9fafb; border-radius: 5px; margin-bottom: 15px; }
@@ -47,11 +47,10 @@
         .actions-container { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
         .action-button { border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; }
         .btn-edit { background-color: var(--blue-color); color: white; }
-        .btn-delete { background-color: transparent; color: var(--red-color); font-size: 24px; font-weight: bold; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; margin-left: auto; }
-        .btn-delete:hover { background-color: #fee2e2; }
+        .btn-delete { background-color: var(--red-color); color: white; }
         .btn-save { background-color: var(--green-color); color: white; }
         .btn-cancel { background-color: var(--text-light); color: white; }
-        footer { text-align: center; padding: 20px; font-size: 14px; color: var(--text-light); border-top: 1px solid var(--border-color); background-color: var(--background-white); }
+        footer { text-align: center; padding: 45px 20px; font-size: 14px; color: var(--text-light); border-top: 1px solid var(--border-color); background-color: var(--background-white); }
         .hidden { display: none !important; }
     </style>
 </head>
@@ -183,7 +182,6 @@
                     <div class="note-header">
                         <span class="drag-handle">⠿</span>
                         <span class="note-title-text">${note.title || '제목 없음'}</span>
-                        <button class="action-button btn-delete">×</button>
                         <span class="note-char-count">${summaryLength}자</span>
                     </div>
                     <div class="note-content">
@@ -191,6 +189,7 @@
                             <pre class="note-summary">${note.summary || ''}</pre>
                             <div class="actions-container">
                                 <button class="action-button btn-edit">수정</button>
+                                <button class="action-button btn-delete">삭제</button>
                             </div>
                         </div>
                         <div class="edit-area" style="display: none;">
@@ -245,7 +244,7 @@
                     editArea.style.display = 'block';
                     updateCharCount(titleInput, titleCounter, TITLE_LIMIT);
                     updateCharCount(summaryInput, summaryCounter, SUMMARY_LIMIT);
-                    autoGrow(summaryInput); // 편집창 열 때 자동 높이 조절
+                    autoGrow(summaryInput);
                 });
 
                 item.querySelector('.btn-cancel').addEventListener('click', () => {
@@ -273,7 +272,7 @@
                 titleInput.addEventListener('input', () => updateCharCount(titleInput, titleCounter, TITLE_LIMIT));
                 summaryInput.addEventListener('input', () => {
                     updateCharCount(summaryInput, summaryCounter, SUMMARY_LIMIT);
-                    autoGrow(summaryInput); // 타이핑할 때마다 자동 높이 조절
+                    autoGrow(summaryInput);
                 });
             });
         };
@@ -302,7 +301,6 @@
             });
         };
 
-        // --- Settings Menu Logic ---
         settingsButton.addEventListener('click', (e) => {
             e.stopPropagation();
             settingsDropdown.style.display = settingsDropdown.style.display === 'block' ? 'none' : 'block';
@@ -349,11 +347,9 @@
             location.reload();
         });
 
-        // --- Global Event Listeners ---
         fileInput.addEventListener('change', handleFileSelect);
         searchInput.addEventListener('input', handleSearch);
         
-        // --- Initial Load ---
         loadDataFromLocal();
         initializeSortable();
     });
