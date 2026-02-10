@@ -265,7 +265,7 @@
         const addNewNote = () => {
             if (!activeTab) return;
             settingsDropdown.style.display = 'none';
-            const newNote = { title: "새 노트", content: "" };
+            const newNote = { title: "", content: "" };
             if(!loadedData[activeTab]) loadedData[activeTab] = [];
             loadedData[activeTab].unshift(newNote);
             saveDataToLocal();
@@ -398,4 +398,5 @@ function initSwipeBackGesture() {
     });
     </script>
 </body>
+
 </html>
