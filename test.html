@@ -13,9 +13,14 @@
             --green-color: #16a34a; --red-color: #dc2626; --blue-color: #2563eb;
         }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--background-light); color: var(--text-dark); display: flex; flex-direction: column; min-height: 100vh; }
-        .header { display: flex; align-items: center; gap: 10px; background-color: var(--background-white); padding: 10px 20px; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 10; }
+        .header { display: flex; align-items: center; gap: 15px; background-color: var(--background-white); padding: 10px 20px; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 10; }
         #search-input { flex-grow: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
-        .header-actions button { background-color: var(--primary-color); color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; white-space: nowrap; }
+        .settings-menu { position: relative; }
+        #settings-button { background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; line-height: 1; color: var(--text-light); }
+        #settings-dropdown { display: none; position: absolute; right: 0; top: 120%; background-color: var(--background-white); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 100; min-width: 200px; padding: 5px 0; }
+        #settings-dropdown button { display: block; width: 100%; padding: 10px 15px; border: none; background: none; text-align: left; cursor: pointer; font-size: 14px; }
+        #settings-dropdown button:hover { background-color: #f3f4f6; }
+        #delete-tab-button { color: var(--red-color); }
         .tabs-container { padding: 0 15px; background-color: var(--background-white); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 5px; overflow-x: auto; flex-wrap: nowrap; }
         .tab { padding: 12px 15px; cursor: pointer; border-bottom: 3px solid transparent; font-size: 15px; white-space: nowrap; color: var(--text-light); }
         .tab.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: 600; }
@@ -36,7 +41,7 @@
         .edit-area .form-group { margin-bottom: 15px; }
         .edit-area label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 5px; }
         .edit-area input, .edit-area textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 5px; font-family: inherit; }
-        .edit-area textarea { min-height: 150px; resize: vertical; line-height: 1.7; }
+        .edit-area textarea { min-height: 150px; resize: none; overflow-y: hidden; line-height: 1.7; }
         .char-counter { font-size: 12px; color: var(--text-light); text-align: right; margin-top: 4px; }
         .char-counter.limit-exceeded { color: var(--red-color); font-weight: bold; }
         .actions-container { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
@@ -46,16 +51,20 @@
         .btn-delete:hover { background-color: #fee2e2; }
         .btn-save { background-color: var(--green-color); color: white; }
         .btn-cancel { background-color: var(--text-light); color: white; }
-        footer { text-align: center; padding: 20px; font-size: 14px; color: var(--text-light); border-top: 1px solid var(--border-color); margin-top: 20px; background-color: var(--background-white); }
+        footer { text-align: center; padding: 20px; font-size: 14px; color: var(--text-light); border-top: 1px solid var(--border-color); background-color: var(--background-white); }
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
     <header class="header">
         <input type="text" id="search-input" placeholder="파일을 먼저 불러와주세요..." disabled>
-        <div class="header-actions">
-            <button id="add-note-button" style="display: none;">+ 새 기억 추가</button>
-            <button id="export-tab-button" style="display: none;">현재 탭 다운로드</button>
+        <div class="settings-menu" id="settings-menu" style="display: none;">
+            <button id="settings-button" title="설정">⚙️</button>
+            <div id="settings-dropdown">
+                <button id="add-note-button">➕ 새 기억 추가</button>
+                <button id="export-tab-button">📄 현재 탭 다운로드</button>
+                <button id="delete-tab-button">🗑️ 현재 탭 삭제</button>
+            </div>
         </div>
     </header>
 
@@ -83,8 +92,10 @@
 
         const fileInput = getEl('file-input'), searchInput = getEl('search-input');
         const tabsContainer = getEl('tabs-container'), initialLoader = getEl('initial-loader');
-        const notesContainer = getEl('notes-container'), addNoteButton = getEl('add-note-button');
-        const exportTabButton = getEl('export-tab-button');
+        const notesContainer = getEl('notes-container'), settingsMenu = getEl('settings-menu');
+        const settingsButton = getEl('settings-button'), settingsDropdown = getEl('settings-dropdown');
+        const addNoteButton = getEl('add-note-button'), exportTabButton = getEl('export-tab-button');
+        const deleteTabButton = getEl('delete-tab-button');
 
         let loadedData = {}, activeTab = null;
 
@@ -107,13 +118,12 @@
             initialLoader.style.display = 'none';
             searchInput.disabled = false;
             searchInput.placeholder = '제목 또는 내용으로 검색...';
-            addNoteButton.style.display = 'inline-block';
-            exportTabButton.style.display = 'inline-block';
+            settingsMenu.style.display = 'block';
         };
 
         const createAddFileTab = () => {
             const addTab = document.createElement('div');
-            addTab.id = 'add-file-tab'; addTab.textContent = '📂+'; addTab.title = '파일 추가하기';
+            addTab.id = 'add-file-tab'; addTab.textContent = '+'; addTab.title = '파일 추가하기';
             addTab.onclick = () => fileInput.click();
             tabsContainer.appendChild(addTab);
         };
@@ -212,6 +222,11 @@
             counterEl.classList.toggle('limit-exceeded', count > limit);
         };
 
+        const autoGrow = (element) => {
+            element.style.height = 'auto';
+            element.style.height = (element.scrollHeight) + 'px';
+        };
+
         const attachNoteEventListeners = () => {
             document.querySelectorAll('.note-item').forEach(item => {
                 const index = parseInt(item.dataset.index, 10);
@@ -230,6 +245,7 @@
                     editArea.style.display = 'block';
                     updateCharCount(titleInput, titleCounter, TITLE_LIMIT);
                     updateCharCount(summaryInput, summaryCounter, SUMMARY_LIMIT);
+                    autoGrow(summaryInput); // 편집창 열 때 자동 높이 조절
                 });
 
                 item.querySelector('.btn-cancel').addEventListener('click', () => {
@@ -255,7 +271,10 @@
                 });
                 
                 titleInput.addEventListener('input', () => updateCharCount(titleInput, titleCounter, TITLE_LIMIT));
-                summaryInput.addEventListener('input', () => updateCharCount(summaryInput, summaryCounter, SUMMARY_LIMIT));
+                summaryInput.addEventListener('input', () => {
+                    updateCharCount(summaryInput, summaryCounter, SUMMARY_LIMIT);
+                    autoGrow(summaryInput); // 타이핑할 때마다 자동 높이 조절
+                });
             });
         };
 
@@ -282,6 +301,15 @@
                 item.classList.toggle('hidden', !isVisible);
             });
         };
+
+        // --- Settings Menu Logic ---
+        settingsButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsDropdown.style.display = settingsDropdown.style.display === 'block' ? 'none' : 'block';
+        });
+        document.addEventListener('click', () => {
+            settingsDropdown.style.display = 'none';
+        });
 
         addNoteButton.addEventListener('click', () => {
             if (!activeTab) return;
@@ -314,9 +342,18 @@
             document.body.removeChild(a); URL.revokeObjectURL(url);
         });
 
+        deleteTabButton.addEventListener('click', () => {
+            if (!activeTab || !confirm(`'${activeTab.replace('.json','')}' 탭을 정말로 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+            delete loadedData[activeTab];
+            saveDataToLocal();
+            location.reload();
+        });
+
+        // --- Global Event Listeners ---
         fileInput.addEventListener('change', handleFileSelect);
         searchInput.addEventListener('input', handleSearch);
         
+        // --- Initial Load ---
         loadDataFromLocal();
         initializeSortable();
     });
