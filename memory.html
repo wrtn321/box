@@ -20,7 +20,6 @@
         #settings-dropdown { display: none; position: absolute; right: 0; top: 120%; background-color: var(--background-white); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 100; min-width: 200px; padding: 5px 0; }
         #settings-dropdown button { display: block; width: 100%; padding: 10px 15px; border: none; background: none; text-align: left; cursor: pointer; font-size: 14px; }
         #settings-dropdown button:hover { background-color: #f3f4f6; }
-        #settings-dropdown .shortcut-hint { float: right; font-size: 11px; color: #9ca3af; margin-top: 2px; }
         #delete-tab-button { color: var(--red-color); }
         .tabs-container { padding: 0 15px; background-color: var(--background-white); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 5px; overflow-x: auto; flex-wrap: nowrap; }
         .tab { padding: 12px 15px; cursor: pointer; border-bottom: 3px solid transparent; font-size: 15px; white-space: nowrap; color: var(--text-light); }
@@ -61,7 +60,7 @@
         <div class="settings-menu" id="settings-menu" style="display: none;">
             <button id="settings-button" title="설정">⚙️</button>
             <div id="settings-dropdown">
-                <button id="add-note-button">➕ 새 기억 추가 <span class="shortcut-hint">Ctrl+N</span></button>
+                <button id="add-note-button">➕ 새 기억 추가</button>
                 <button id="export-tab-button">📄 현재 탭 다운로드</button>
                 <button id="delete-tab-button">🗑️ 현재 탭 삭제</button>
             </div>
@@ -310,43 +309,22 @@
             settingsDropdown.style.display = 'none';
         });
 
-        // ----------------------------------------------------
-        // [기능 추가] 새 노트 생성 함수 (단축키와 버튼 공유)
-        // ----------------------------------------------------
-        const addNewNote = () => {
-            if (!activeTab) {
-                alert('파일을 먼저 불러오거나 탭을 선택해주세요.');
-                return;
-            }
+        addNoteButton.addEventListener('click', () => {
+            if (!activeTab) return;
             const newTitle = prompt("새 기억의 제목을 입력하세요:", "새 기억");
             if (newTitle) {
                 const newNote = { title: newTitle, summary: "" };
                 if (!loadedData[activeTab]) loadedData[activeTab] = [];
-                
-                // 목록의 맨 위에 추가
                 loadedData[activeTab].unshift(newNote);
                 saveDataToLocal();
                 renderNotes(loadedData[activeTab]);
-                
-                // DOM이 갱신된 후 첫 번째 아이템(방금 추가한 것) 찾기
                 const firstItem = notesContainer.querySelector('.note-item');
                 if (firstItem) {
                     firstItem.classList.add('expanded');
                     firstItem.querySelector('.view-area').style.display = 'none';
                     firstItem.querySelector('.edit-area').style.display = 'block';
-                    firstItem.querySelector('.edit-summary-input').focus();
+                    firstItem.querySelector('.edit-title-input').focus();
                 }
-            }
-        };
-
-        addNoteButton.addEventListener('click', addNewNote);
-
-        // Ctrl + N 단축키 기능 추가
-        document.addEventListener('keydown', (e) => {
-            // Ctrl (또는 Mac의 Command) + n 키 조합 확인
-            if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
-                e.preventDefault(); // 브라우저 새 창 열기 방지
-                addNewNote();
             }
         });
 
