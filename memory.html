@@ -309,6 +309,9 @@
             settingsDropdown.style.display = 'none';
         });
 
+        // --------------------------------------------------------
+        // 수정된 부분: 새 기억 추가 시 포커스 이동 변경
+        // --------------------------------------------------------
         addNoteButton.addEventListener('click', () => {
             if (!activeTab) return;
             const newTitle = prompt("새 기억의 제목을 입력하세요:", "새 기억");
@@ -323,7 +326,9 @@
                     firstItem.classList.add('expanded');
                     firstItem.querySelector('.view-area').style.display = 'none';
                     firstItem.querySelector('.edit-area').style.display = 'block';
-                    firstItem.querySelector('.edit-title-input').focus();
+                    // 기존: firstItem.querySelector('.edit-title-input').focus();
+                    // 변경: 내용(summary) 입력창으로 포커스 이동
+                    firstItem.querySelector('.edit-summary-input').focus();
                 }
             }
         });
