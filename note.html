@@ -335,18 +335,49 @@
         deleteTabButton.addEventListener('click', deleteCurrentTab);
         copyButton.addEventListener('click', () => {
             if (!currentNote || !currentNote.content) return;
-            
-            // [핵심 수정] 
-            // 1. 특수 공백(\u00A0)을 일반 공백으로 변경
-            // 2. NFC 정규화 (한글 자소 분리 방지)
-            const cleanText = currentNote.content
-                .replace(/\u00A0/g, ' ')
-                .normalize('NFC'); 
-            
-            navigator.clipboard.writeText(cleanText).then(() => {
-                copyButton.textContent = 'copied!'; 
+
+            // [핵심 수정] iOS의 클립보드 버그를 우회하기 위한 함수
+            const copyToClipboardFallback = (str) => {
+                // 1. NFC 정규화 및 특수 공백 제거 (기존 로직 유지)
+                const cleanText = str.replace(/\u00A0/g, ' ').normalize('NFC');
+
+                // 2. 임시 textarea 엘리먼트 생성
+                const tempTextArea = document.createElement('textarea');
+                
+                // 3. iOS에서 화면이 흔들리는 것을 방지하기 위한 스타일 설정
+                tempTextArea.style.position = 'absolute';
+                tempTextArea.style.left = '-9999px';
+                tempTextArea.style.top = '0';
+                
+                // 4. 정리된 텍스트를 textarea에 할당
+                tempTextArea.value = cleanText;
+                document.body.appendChild(tempTextArea);
+                
+                // 5. iOS 기기에서 focus()와 select()를 모두 호출하여 선택 보장
+                tempTextArea.focus();
+                tempTextArea.select();
+
+                let success = false;
+                try {
+                    // 6. 복사 실행
+                    success = document.execCommand('copy');
+                } catch (err) {
+                    console.error('Fallback Copy: Oops, unable to copy', err);
+                }
+
+                // 7. 임시 textarea 제거
+                document.body.removeChild(tempTextArea);
+                
+                return success;
+            };
+
+            // 복사 실행 및 UI 업데이트
+            if (copyToClipboardFallback(currentNote.content)) {
+                copyButton.textContent = 'copied!';
                 setTimeout(() => { copyButton.textContent = 'copy'; }, 1500);
-            });
+            } else {
+                alert('이 브라우저에서는 복사를 지원하지 않습니다.');
+            }
         });
         
         loadDataFromLocal();
@@ -409,5 +440,6 @@ function initSwipeBackGesture() {
 </body>
 
 </html>
+
 
 
