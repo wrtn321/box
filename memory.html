@@ -230,7 +230,9 @@
             document.querySelectorAll('.note-item').forEach(item => {
                 const index = parseInt(item.dataset.index, 10);
                 const titleText = item.querySelector('.note-title-text');
+                const charCountText = item.querySelector('.note-char-count');
                 const viewArea = item.querySelector('.view-area');
+                const viewSummary = item.querySelector('.note-summary');
                 const editArea = item.querySelector('.edit-area');
                 const titleInput = item.querySelector('.edit-title-input');
                 const summaryInput = item.querySelector('.edit-summary-input');
@@ -254,11 +256,26 @@
                     summaryInput.value = loadedData[activeTab][index].summary;
                 });
                 
+                // -------------------------------------------------------------
+                // [수정됨] 저장 로직: 편집 모드를 닫고 조회 모드로 전환
+                // -------------------------------------------------------------
                 item.querySelector('.btn-save').addEventListener('click', () => {
-                    loadedData[activeTab][index].title = titleInput.value;
-                    loadedData[activeTab][index].summary = summaryInput.value;
+                    const newTitle = titleInput.value;
+                    const newSummary = summaryInput.value;
+
+                    // 1. 데이터 업데이트
+                    loadedData[activeTab][index].title = newTitle;
+                    loadedData[activeTab][index].summary = newSummary;
                     saveDataToLocal();
-                    renderNotes(loadedData[activeTab]);
+
+                    // 2. UI 업데이트 (헤더 및 숨겨진 조회 화면)
+                    titleText.textContent = newTitle || '제목 없음';
+                    charCountText.textContent = `${newSummary.length}자`;
+                    viewSummary.textContent = newSummary;
+
+                    // 3. [핵심] 편집 화면을 닫고 조회 화면으로 전환
+                    editArea.style.display = 'none';
+                    viewArea.style.display = 'block';
                 });
                 
                 item.querySelector('.btn-delete').addEventListener('click', () => {
@@ -309,9 +326,6 @@
             settingsDropdown.style.display = 'none';
         });
 
-        // --------------------------------------------------------
-        // 수정된 부분: 새 기억 추가 시 포커스 이동 변경
-        // --------------------------------------------------------
         addNoteButton.addEventListener('click', () => {
             if (!activeTab) return;
             const newTitle = prompt("새 기억의 제목을 입력하세요:", "새 기억");
@@ -326,8 +340,6 @@
                     firstItem.classList.add('expanded');
                     firstItem.querySelector('.view-area').style.display = 'none';
                     firstItem.querySelector('.edit-area').style.display = 'block';
-                    // 기존: firstItem.querySelector('.edit-title-input').focus();
-                    // 변경: 내용(summary) 입력창으로 포커스 이동
                     firstItem.querySelector('.edit-summary-input').focus();
                 }
             }
