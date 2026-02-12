@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>삼이일</title>
     <style>
         :root {
@@ -10,8 +10,18 @@
             --background-light: #f4f4f4; --background-white: #fff; --text-dark: #333; --text-light: #666;
             --green-color: #16a34a; --red-color: #dc2626;
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--background-light); color: var(--text-dark); display: flex; flex-direction: column; min-height: 100vh; }
-        .header { display: flex; align-items: center; gap: 10px; background-color: var(--background-white); padding: 10px 15px; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); z-index: 10; }
+        /* 앱 같은 사용감 유지를 위해 height: 100vh 고정 */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            margin: 0; 
+            background-color: var(--background-light); 
+            color: var(--text-dark); 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; /* 화면 꽉 차게 고정 */
+            overflow: hidden; /* 전체 페이지 스크롤 방지 */
+        }
+        .header { display: flex; align-items: center; gap: 10px; background-color: var(--background-white); padding: 10px 15px; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); z-index: 10; flex-shrink: 0; }
         #search-input { flex-grow: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
         .settings-menu { position: relative; }
         #settings-button { background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; line-height: 1; color: var(--text-light); }
@@ -19,23 +29,47 @@
         #settings-dropdown button { display: block; width: 100%; padding: 12px 15px; border: none; background: none; text-align: left; cursor: pointer; font-size: 14px; }
         #settings-dropdown button:hover { background-color: #f0f0f0; }
         #delete-tab-button { color: var(--red-color); }
-        .tabs-container { padding: 0 10px; background-color: var(--background-white); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 5px; overflow-x: auto; }
+        
+        .tabs-container { padding: 0 10px; background-color: var(--background-white); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 5px; overflow-x: auto; flex-shrink: 0; }
         .tab { padding: 12px 15px; cursor: pointer; border-bottom: 3px solid transparent; font-size: 15px; white-space: nowrap; }
         .tab.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: 600; }
         #add-file-tab { font-size: 24px; font-weight: bold; color: var(--primary-color); padding: 5px 15px; cursor: pointer; border-radius: 5px; }
-        #add-file-tab:hover { background-color: #f0f0f0; }
-        .main-container { display: flex; flex: 1; overflow: hidden; }
-        #sidebar { width: 320px; background-color: var(--background-white); border-right: 1px solid var(--border-color); overflow-y: auto; flex-shrink: 0; }
+        
+        .main-container { display: flex; flex: 1; overflow: hidden; position: relative; }
+        
+        /* [수정] 사이드바 하단 여백 추가 (padding-bottom) */
+        #sidebar { 
+            width: 320px; 
+            background-color: var(--background-white); 
+            border-right: 1px solid var(--border-color); 
+            overflow-y: auto; 
+            flex-shrink: 0; 
+            padding-bottom: 80px; /* 맨 아래 스크롤 시 여유 공간 */
+        }
         .sidebar-item { padding: 15px 20px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .sidebar-item:hover { background-color: #f0f0f0; }
         .sidebar-item.active { background-color: var(--primary-light-color); font-weight: 600; color: var(--primary-color); border-right: 3px solid var(--primary-color); }
-        #content-area { flex: 1; padding: 25px; overflow-y: auto; background-color: #fafafa; }
+        
+        /* [수정] 본문 영역 하단 여백 대폭 추가 (padding-bottom) */
+        #content-area { 
+            flex: 1; 
+            padding: 25px; 
+            padding-bottom: 120px; /* 푸터 대신 넉넉한 투명 여백 */
+            overflow-y: auto; 
+            background-color: #fafafa; 
+            -webkit-overflow-scrolling: touch; 
+        }
+        
         #content-wrapper, #edit-form { display: none; }
         #content-wrapper.visible, #edit-form.visible { display: block; }
-        .actions-container { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap; }
-        .actions-left { display: flex; align-items: center; gap: 15px; }
-        .action-button { background-color: var(--primary-color); color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; }
-        #char-count { font-size: 14px; color: var(--text-light); background-color: #eef2ff; padding: 8px 12px; border-radius: 5px; }
+        
+        .actions-container { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: nowrap; }
+        .actions-left { display: flex; align-items: center; gap: 10px; flex-grow: 1; }
+        .action-button { background-color: var(--primary-color); color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; white-space: nowrap;}
+        
+        #back-to-list-button { display: none; background-color: var(--text-light); margin-right: 5px; }
+
+        #char-count { font-size: 14px; color: var(--text-light); background-color: #eef2ff; padding: 8px 12px; border-radius: 5px; white-space: nowrap; }
         #content-title { font-size: 24px; font-weight: bold; margin: 0; }
         #content-body { background-color: var(--background-white); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; white-space: pre-wrap; word-wrap: break-word; font-size: 16px; line-height: 1.7; margin-top: 15px; }
         .image-container { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
@@ -47,11 +81,13 @@
         .file-loader { padding: 40px 20px; text-align: center; }
         .file-loader-label { display: inline-block; background: var(--primary-color); color: white; padding: 15px 30px; border-radius: 8px; cursor: pointer; margin-bottom: 15px; font-size: 16px; }
         #file-input { display: none; }
-        footer { text-align: center; padding: 45px 20px; font-size: 14px; color: var(--text-light); border-top: 1px solid var(--border-color); background-color: var(--background-white); }
+        
+        
         @media (max-width: 768px) {
             .main-container.content-mode #sidebar { display: none; }
             .main-container:not(.content-mode) #content-area { display: none; }
             #sidebar, #content-area { width: 100%; border-right: none; }
+            #back-to-list-button { display: inline-block; }
         }
     </style>
 </head>
@@ -82,6 +118,7 @@
             <div id="content-wrapper">
                  <div class="actions-container">
                     <div class="actions-left">
+                        <button id="back-to-list-button" class="action-button">목록</button>
                         <button id="edit-button" class="action-button" style="background-color: var(--green-color);">edit</button>
                         <span id="char-count"></span>
                     </div>
@@ -112,9 +149,6 @@
         </main>
     </div>
     
-    <footer>
-        <p>All rights reserved.</p>
-    </footer>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -126,14 +160,13 @@
         const sidebar = getEl('sidebar'), mainContainer = getEl('main-container'), initialLoader = getEl('initial-loader');
         const contentWrapper = getEl('content-wrapper'), imageContainer = getEl('image-container'), contentTitle = getEl('content-title');
         const contentBody = getEl('content-body'), copyButton = getEl('copy-button'), charCount = getEl('char-count');
-        const editButton = getEl('edit-button');
+        const backToListButton = getEl('back-to-list-button'), editButton = getEl('edit-button');
         const editForm = getEl('edit-form'), editTitleInput = getEl('edit-title-input'), editContentInput = getEl('edit-content-input'), editImageUrlsTextarea = getEl('edit-image-urls-textarea');
         const saveButton = getEl('save-button'), cancelButton = getEl('cancel-button'), deleteNoteButton = getEl('delete-note-button');
         const settingsMenu = getEl('settings-menu'), settingsButton = getEl('settings-button'), settingsDropdown = getEl('settings-dropdown');
         const addTabButton = getEl('add-tab-button'), addNoteButton = getEl('add-note-button'), exportTabButton = getEl('export-tab-button'), deleteTabButton = getEl('delete-tab-button');
         
         let loadedData = {}, activeTab = null, currentNote = null, editingNoteIndex = null;
-        let lastSidebarScroll = 0; // 스크롤 위치 저장 변수 추가
 
         const saveDataToLocal = () => localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(loadedData));
         const loadDataFromLocal = () => {
@@ -199,15 +232,7 @@
         };
 
         const switchTab = (filename) => {
-            // [수정됨] 현재 탭을 다시 누른 경우, 목록을 다시 그리지 않고 보기 모드만 해제 (스크롤 유지)
-            if (activeTab === filename) {
-                showSidebarView();
-                return;
-            }
-
             activeTab = filename;
-            lastSidebarScroll = 0; // 새 탭으로 이동시 스크롤 초기화
-            
             document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.filename === filename));
             populateSidebar(loadedData[filename] || []);
             switchViewMode('none');
@@ -226,9 +251,6 @@
         };
 
         const displayContent = (note, clickedItem, index) => {
-            // [수정됨] 컨텐츠 보기 전에 현재 스크롤 위치 저장
-            lastSidebarScroll = sidebar.scrollTop;
-
             currentNote = note; editingNoteIndex = index;
             document.querySelectorAll('.sidebar-item.active').forEach(i => i.classList.remove('active'));
             clickedItem.classList.add('active');
@@ -354,14 +376,7 @@
         };
         
         const showContentView = () => mainContainer.classList.add('content-mode');
-        
-        // [수정됨] 목록 뷰로 돌아올 때 저장된 스크롤 위치 복구
-        const showSidebarView = () => {
-            mainContainer.classList.remove('content-mode');
-            setTimeout(() => {
-                sidebar.scrollTop = lastSidebarScroll;
-            }, 0);
-        };
+        const showSidebarView = () => mainContainer.classList.remove('content-mode');
 
         // Event Listeners
         fileInput.addEventListener('change', handleFileSelect);
@@ -369,6 +384,7 @@
         addTabButton.addEventListener('click', addNewTab);
         addNoteButton.addEventListener('click', addNewNote);
         editButton.addEventListener('click', enterEditMode);
+        backToListButton.addEventListener('click', showSidebarView);
         saveButton.addEventListener('click', saveNote);
         cancelButton.addEventListener('click', () => switchViewMode('view'));
         deleteNoteButton.addEventListener('click', deleteCurrentNote);
@@ -449,7 +465,7 @@
                 }
             });
         }
-        initSwipeBackGesture(); 
+        initSwipeBackGesture();
     });
     </script>
 </body>
