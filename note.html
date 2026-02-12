@@ -133,6 +133,7 @@
         const addTabButton = getEl('add-tab-button'), addNoteButton = getEl('add-note-button'), exportTabButton = getEl('export-tab-button'), deleteTabButton = getEl('delete-tab-button');
         
         let loadedData = {}, activeTab = null, currentNote = null, editingNoteIndex = null;
+        let lastSidebarScroll = 0; // 스크롤 위치 저장 변수 추가
 
         const saveDataToLocal = () => localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(loadedData));
         const loadDataFromLocal = () => {
@@ -198,7 +199,15 @@
         };
 
         const switchTab = (filename) => {
+            // [수정됨] 현재 탭을 다시 누른 경우, 목록을 다시 그리지 않고 보기 모드만 해제 (스크롤 유지)
+            if (activeTab === filename) {
+                showSidebarView();
+                return;
+            }
+
             activeTab = filename;
+            lastSidebarScroll = 0; // 새 탭으로 이동시 스크롤 초기화
+            
             document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.filename === filename));
             populateSidebar(loadedData[filename] || []);
             switchViewMode('none');
@@ -217,6 +226,9 @@
         };
 
         const displayContent = (note, clickedItem, index) => {
+            // [수정됨] 컨텐츠 보기 전에 현재 스크롤 위치 저장
+            lastSidebarScroll = sidebar.scrollTop;
+
             currentNote = note; editingNoteIndex = index;
             document.querySelectorAll('.sidebar-item.active').forEach(i => i.classList.remove('active'));
             clickedItem.classList.add('active');
@@ -342,7 +354,14 @@
         };
         
         const showContentView = () => mainContainer.classList.add('content-mode');
-        const showSidebarView = () => mainContainer.classList.remove('content-mode');
+        
+        // [수정됨] 목록 뷰로 돌아올 때 저장된 스크롤 위치 복구
+        const showSidebarView = () => {
+            mainContainer.classList.remove('content-mode');
+            setTimeout(() => {
+                sidebar.scrollTop = lastSidebarScroll;
+            }, 0);
+        };
 
         // Event Listeners
         fileInput.addEventListener('change', handleFileSelect);
@@ -430,7 +449,7 @@
                 }
             });
         }
-        initSwipeBackGesture(); // 제스처 기능 활성화
+        initSwipeBackGesture(); 
     });
     </script>
 </body>
