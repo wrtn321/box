@@ -335,9 +335,17 @@
         deleteTabButton.addEventListener('click', deleteCurrentTab);
         copyButton.addEventListener('click', () => {
             if (!currentNote || !currentNote.content) return;
-            const normalizedText = currentNote.content.normalize('NFC'); 
-            navigator.clipboard.writeText(currentNote.content).then(() => {
-                copyButton.textContent = 'copied!'; setTimeout(() => { copyButton.textContent = 'copy'; }, 1500);
+            
+            // [핵심 수정] 
+            // 1. 특수 공백(\u00A0)을 일반 공백으로 변경
+            // 2. NFC 정규화 (한글 자소 분리 방지)
+            const cleanText = currentNote.content
+                .replace(/\u00A0/g, ' ')
+                .normalize('NFC'); 
+            
+            navigator.clipboard.writeText(cleanText).then(() => {
+                copyButton.textContent = 'copied!'; 
+                setTimeout(() => { copyButton.textContent = 'copy'; }, 1500);
             });
         });
         
@@ -401,4 +409,5 @@ function initSwipeBackGesture() {
 </body>
 
 </html>
+
 
