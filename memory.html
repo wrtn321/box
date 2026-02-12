@@ -12,20 +12,32 @@
             --background-light: #f9fafb; --background-white: #fff; --text-dark: #1f2937; --text-light: #6b7280;
             --green-color: #16a34a; --red-color: #dc2626; --blue-color: #2563eb;
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--background-light); color: var(--text-dark); display: flex; flex-direction: column; min-height: 100vh; }
+        
+        body.dark-mode {
+            --primary-color: #6366f1;
+            --primary-light-color: #3730a3;
+            --border-color: #374151;
+            --background-light: #111827;
+            --background-white: #1f2937;
+            --text-dark: #f9fafb;
+            --text-light: #9ca3af;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--background-light); color: var(--text-dark); display: flex; flex-direction: column; min-height: 100vh; transition: background-color 0.2s, color 0.2s; }
         .header { display: flex; align-items: center; gap: 15px; background-color: var(--background-white); padding: 10px 20px; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 10; }
-        #search-input { flex-grow: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+        #search-input { flex-grow: 1; padding: 10px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 8px; box-sizing: border-box; background-color: var(--background-white); color: var(--text-dark); }
         .settings-menu { position: relative; }
         #settings-button { background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; line-height: 1; color: var(--text-light); }
         #settings-dropdown { display: none; position: absolute; right: 0; top: 120%; background-color: var(--background-white); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 100; min-width: 200px; padding: 5px 0; }
-        #settings-dropdown button { display: block; width: 100%; padding: 10px 15px; border: none; background: none; text-align: left; cursor: pointer; font-size: 14px; }
-        #settings-dropdown button:hover { background-color: #f3f4f6; }
+        #settings-dropdown button { display: block; width: 100%; padding: 10px 15px; border: none; background: none; text-align: left; cursor: pointer; font-size: 14px; color: var(--text-dark); }
+        #settings-dropdown button:hover { background-color: var(--background-light); }
         #delete-tab-button { color: var(--red-color); }
         .tabs-container { padding: 0 15px; background-color: var(--background-white); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 5px; overflow-x: auto; flex-wrap: nowrap; }
         .tab { padding: 12px 15px; cursor: pointer; border-bottom: 3px solid transparent; font-size: 15px; white-space: nowrap; color: var(--text-light); }
         .tab.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: 600; }
         #add-file-tab { font-size: 24px; font-weight: bold; color: var(--primary-color); padding: 5px 15px; cursor: pointer; border-radius: 5px; }
         #add-file-tab:hover { background-color: #f0f0f0; }
+        body.dark-mode #add-file-tab:hover { background-color: #374151; }
         main { padding: 20px; max-width: 900px; margin: 0 auto; flex-grow: 1; width: 100%; box-sizing: border-box; }
         .file-loader { padding: 40px 20px; text-align: center; background-color: var(--background-white); border-radius: 8px; border: 2px dashed var(--border-color); }
         .file-loader-label { display: inline-block; background: var(--primary-color); color: white; padding: 15px 30px; border-radius: 8px; cursor: pointer; margin-bottom: 15px; font-size: 16px; }
@@ -35,11 +47,13 @@
         .drag-handle { cursor: grab; font-size: 20px; color: var(--text-light); padding-right: 15px; }
         .note-title-text { font-weight: 600; flex-grow: 1; cursor: pointer; }
         .note-char-count { font-size: 12px; color: var(--text-light); background-color: #f3f4f6; padding: 3px 8px; border-radius: 10px; margin-left: auto; }
+        body.dark-mode .note-char-count { background-color: #374151; color: #d1d5db; }
         .note-content { display: none; padding: 0 20px 20px 20px; border-top: 1px solid var(--border-color); }
         .note-item.expanded .note-content { display: block; }
         .note-summary { white-space: pre-wrap; word-wrap: break-word; font-size: 15px; line-height: 1.7; padding: 15px; background-color: #f9fafb; border-radius: 5px; margin-bottom: 15px; }
+        body.dark-mode .note-summary { background-color: var(--background-light); }
         .edit-area label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 5px; }
-        .edit-area input, .edit-area textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 5px; font-family: inherit; }
+        .edit-area input, .edit-area textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 15px; border: 1px solid var(--border-color); border-radius: 5px; font-family: inherit; background-color: var(--background-white); color: var(--text-dark); }
         .edit-area textarea { min-height: 150px; resize: none; overflow-y: hidden; line-height: 1.7; }
         .char-counter { font-size: 12px; color: var(--text-light); text-align: right; margin-top: 4px; }
         .char-counter.limit-exceeded { color: var(--red-color); font-weight: bold; }
@@ -48,20 +62,9 @@
         .action-button { border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; }
         .btn-group { display: flex; gap: 10px; }
         .btn-copy { background-color: #4f46e5; color: white; }
-        
-        /* --- [수정됨] --- */
-        .edit-area .actions-container {
-            justify-content: flex-end; /* 저장, 취소 버튼을 오른쪽으로 정렬 */
-            gap: 10px; /* 버튼 사이 간격 */
-        }
-        .edit-area .form-group {
-            margin-bottom: 15px; /* 내용(summary) form-group의 기본 하단 여백 */
-        }
-        .edit-area .form-group:first-child { /* 제목(title) form-group의 여백 재정의 */
-            margin-top: 10px;
-            margin-bottom: 0;
-        }
-
+        .edit-area .actions-container { justify-content: flex-end; gap: 10px; }
+        .edit-area .form-group { margin-bottom: 15px; }
+        .edit-area .form-group:first-child { margin-top: 10px; margin-bottom: 0; }
         .btn-edit { background-color: var(--blue-color); color: white; }
         .btn-delete { background-color: var(--red-color); color: white; }
         .btn-save { background-color: var(--green-color); color: white; }
@@ -79,6 +82,7 @@
                 <button id="add-note-button">➕ 새 기억 추가</button>
                 <button id="export-tab-button">📄 현재 탭 다운로드</button>
                 <button id="delete-tab-button">🗑️ 현재 탭 삭제</button>
+                <button id="dark-mode-toggle">🌙 다크 모드</button>
             </div>
         </div>
     </header>
@@ -101,6 +105,7 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const LOCAL_STORAGE_KEY = 'crackMemoryEditorData';
+        const DARK_MODE_KEY = 'crackMemoryEditorDarkMode';
         const TITLE_LIMIT = 20;
         const SUMMARY_LIMIT = 300;
         const getEl = id => document.getElementById(id);
@@ -111,8 +116,33 @@
         const settingsButton = getEl('settings-button'), settingsDropdown = getEl('settings-dropdown');
         const addNoteButton = getEl('add-note-button'), exportTabButton = getEl('export-tab-button');
         const deleteTabButton = getEl('delete-tab-button');
+        const darkModeToggle = getEl('dark-mode-toggle');
 
         let loadedData = {}, activeTab = null;
+
+        const enableDarkMode = () => {
+            document.body.classList.add('dark-mode');
+            darkModeToggle.textContent = '☀️ 라이트 모드';
+            localStorage.setItem(DARK_MODE_KEY, 'enabled');
+        };
+
+        const disableDarkMode = () => {
+            document.body.classList.remove('dark-mode');
+            darkModeToggle.textContent = '🌙 다크 모드';
+            localStorage.setItem(DARK_MODE_KEY, 'disabled');
+        };
+        
+        if (localStorage.getItem(DARK_MODE_KEY) === 'enabled') {
+            enableDarkMode();
+        }
+
+        darkModeToggle.addEventListener('click', () => {
+            if (document.body.classList.contains('dark-mode')) {
+                disableDarkMode();
+            } else {
+                enableDarkMode();
+            }
+        });
 
         const saveDataToLocal = () => localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(loadedData));
 
