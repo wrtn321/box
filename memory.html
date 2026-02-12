@@ -38,14 +38,30 @@
         .note-content { display: none; padding: 0 20px 20px 20px; border-top: 1px solid var(--border-color); }
         .note-item.expanded .note-content { display: block; }
         .note-summary { white-space: pre-wrap; word-wrap: break-word; font-size: 15px; line-height: 1.7; padding: 15px; background-color: #f9fafb; border-radius: 5px; margin-bottom: 15px; }
-        .edit-area .form-group { margin-bottom: 15px; }
         .edit-area label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 5px; }
         .edit-area input, .edit-area textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 5px; font-family: inherit; }
         .edit-area textarea { min-height: 150px; resize: none; overflow-y: hidden; line-height: 1.7; }
         .char-counter { font-size: 12px; color: var(--text-light); text-align: right; margin-top: 4px; }
         .char-counter.limit-exceeded { color: var(--red-color); font-weight: bold; }
-        .actions-container { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
+        .actions-container { display: flex; align-items: center; }
+        .view-area .actions-container { justify-content: space-between; }
         .action-button { border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .btn-group { display: flex; gap: 10px; }
+        .btn-copy { background-color: #4f46e5; color: white; }
+        
+        /* --- [수정됨] --- */
+        .edit-area .actions-container {
+            justify-content: flex-end; /* 저장, 취소 버튼을 오른쪽으로 정렬 */
+            gap: 10px; /* 버튼 사이 간격 */
+        }
+        .edit-area .form-group {
+            margin-bottom: 15px; /* 내용(summary) form-group의 기본 하단 여백 */
+        }
+        .edit-area .form-group:first-child { /* 제목(title) form-group의 여백 재정의 */
+            margin-top: 10px;
+            margin-bottom: 0;
+        }
+
         .btn-edit { background-color: var(--blue-color); color: white; }
         .btn-delete { background-color: var(--red-color); color: white; }
         .btn-save { background-color: var(--green-color); color: white; }
@@ -79,7 +95,7 @@
     </main>
     
     <footer>
-        <p>&copy; 2024 Crack Memory Editor. All rights reserved.</p>
+        <p>&copy; All rights reserved.</p>
     </footer>
 
     <script>
@@ -188,8 +204,11 @@
                         <div class="view-area">
                             <pre class="note-summary">${note.summary || ''}</pre>
                             <div class="actions-container">
-                                <button class="action-button btn-edit">수정</button>
-                                <button class="action-button btn-delete">삭제</button>
+                                <button class="action-button btn-copy">(copy)</button>
+                                <div class="btn-group">
+                                    <button class="action-button btn-edit">수정</button>
+                                    <button class="action-button btn-delete">삭제</button>
+                                </div>
                             </div>
                         </div>
                         <div class="edit-area" style="display: none;">
@@ -256,24 +275,15 @@
                     summaryInput.value = loadedData[activeTab][index].summary;
                 });
                 
-                // -------------------------------------------------------------
-                // [수정됨] 저장 로직: 편집 모드를 닫고 조회 모드로 전환
-                // -------------------------------------------------------------
                 item.querySelector('.btn-save').addEventListener('click', () => {
                     const newTitle = titleInput.value;
                     const newSummary = summaryInput.value;
-
-                    // 1. 데이터 업데이트
                     loadedData[activeTab][index].title = newTitle;
                     loadedData[activeTab][index].summary = newSummary;
                     saveDataToLocal();
-
-                    // 2. UI 업데이트 (헤더 및 숨겨진 조회 화면)
                     titleText.textContent = newTitle || '제목 없음';
                     charCountText.textContent = `${newSummary.length}자`;
                     viewSummary.textContent = newSummary;
-
-                    // 3. [핵심] 편집 화면을 닫고 조회 화면으로 전환
                     editArea.style.display = 'none';
                     viewArea.style.display = 'block';
                 });
@@ -285,7 +295,20 @@
                         renderNotes(loadedData[activeTab]);
                     }
                 });
-                
+
+                const copyButton = item.querySelector('.btn-copy');
+                copyButton.addEventListener('click', () => {
+                    navigator.clipboard.writeText(viewSummary.textContent).then(() => {
+                        copyButton.textContent = 'copied';
+                        setTimeout(() => {
+                            copyButton.textContent = 'copy';
+                        }, 1500);
+                    }).catch(err => {
+                        console.error('클립보드 복사 실패:', err);
+                        alert('내용 복사에 실패했습니다.');
+                    });
+                });
+
                 titleInput.addEventListener('input', () => updateCharCount(titleInput, titleCounter, TITLE_LIMIT));
                 summaryInput.addEventListener('input', () => {
                     updateCharCount(summaryInput, summaryCounter, SUMMARY_LIMIT);
