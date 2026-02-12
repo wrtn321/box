@@ -10,7 +10,7 @@
             --background-light: #f4f4f4; --background-white: #fff; --text-dark: #333; --text-light: #666;
             --green-color: #16a34a; --red-color: #dc2626;
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--background-light); color: var(--text-dark); display: flex; flex-direction: column; height: 100vh; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background-color: var(--background-light); color: var(--text-dark); display: flex; flex-direction: column; min-height: 100vh; }
         .header { display: flex; align-items: center; gap: 10px; background-color: var(--background-white); padding: 10px 15px; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); z-index: 10; }
         #search-input { flex-grow: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
         .settings-menu { position: relative; }
@@ -26,15 +26,15 @@
         #add-file-tab:hover { background-color: #f0f0f0; }
         .main-container { display: flex; flex: 1; overflow: hidden; }
         #sidebar { width: 320px; background-color: var(--background-white); border-right: 1px solid var(--border-color); overflow-y: auto; flex-shrink: 0; }
-        .sidebar-item { padding: 15px 20px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 15px; overflow: hidden; text-overflow: ellipsis; }
+        .sidebar-item { padding: 15px 20px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .sidebar-item:hover { background-color: #f0f0f0; }
         .sidebar-item.active { background-color: var(--primary-light-color); font-weight: 600; color: var(--primary-color); border-right: 3px solid var(--primary-color); }
         #content-area { flex: 1; padding: 25px; overflow-y: auto; background-color: #fafafa; }
         #content-wrapper, #edit-form { display: none; }
         #content-wrapper.visible, #edit-form.visible { display: block; }
-        .actions-container { margin-bottom: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .actions-container { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap; }
+        .actions-left { display: flex; align-items: center; gap: 15px; }
         .action-button { background-color: var(--primary-color); color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; }
-        #back-to-list-button { display: none; background-color: var(--text-light); }
         #char-count { font-size: 14px; color: var(--text-light); background-color: #eef2ff; padding: 8px 12px; border-radius: 5px; }
         #content-title { font-size: 24px; font-weight: bold; margin: 0; }
         #content-body { background-color: var(--background-white); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; white-space: pre-wrap; word-wrap: break-word; font-size: 16px; line-height: 1.7; margin-top: 15px; }
@@ -47,11 +47,11 @@
         .file-loader { padding: 40px 20px; text-align: center; }
         .file-loader-label { display: inline-block; background: var(--primary-color); color: white; padding: 15px 30px; border-radius: 8px; cursor: pointer; margin-bottom: 15px; font-size: 16px; }
         #file-input { display: none; }
+        footer { text-align: center; padding: 45px 20px; font-size: 14px; color: var(--text-light); border-top: 1px solid var(--border-color); background-color: var(--background-white); }
         @media (max-width: 768px) {
             .main-container.content-mode #sidebar { display: none; }
             .main-container:not(.content-mode) #content-area { display: none; }
             #sidebar, #content-area { width: 100%; border-right: none; }
-            #back-to-list-button { display: inline-block; }
         }
     </style>
 </head>
@@ -81,10 +81,11 @@
             </div>
             <div id="content-wrapper">
                  <div class="actions-container">
-                    <button id="back-to-list-button" class="action-button">목록</button>
+                    <div class="actions-left">
+                        <button id="edit-button" class="action-button" style="background-color: var(--green-color);">edit</button>
+                        <span id="char-count"></span>
+                    </div>
                     <button id="copy-button" class="action-button">copy</button>
-                    <button id="edit-button" class="action-button" style="background-color: var(--green-color);">edit</button>
-                    <span id="char-count"></span>
                 </div>
                 <h2 id="content-title"></h2>
                 <pre id="content-body"></pre>
@@ -92,7 +93,7 @@
             </div>
             <div id="edit-form">
                 <label for="edit-title-input">제목</label>
-                <input type="text" id="edit-title-input">
+                <input type="text" id="edit-title-input" placeholder="새 노트">
                 
                 <label for="edit-content-input">내용</label>
                 <textarea id="edit-content-input"></textarea>
@@ -101,12 +102,19 @@
                 <textarea id="edit-image-urls-textarea" placeholder="https://example.com/image1.png&#10;https://example.com/image2.jpg"></textarea>
 
                 <div class="actions-container">
-                    <button id="save-button" class="action-button" style="background-color: var(--green-color);">저장</button>
-                    <button id="cancel-button" class="action-button" style="background-color: var(--text-light);">취소</button>
+                    <div class="actions-left">
+                        <button id="save-button" class="action-button" style="background-color: var(--green-color);">저장</button>
+                        <button id="cancel-button" class="action-button" style="background-color: var(--text-light);">취소</button>
+                    </div>
+                    <button id="delete-note-button" class="action-button" style="background-color: var(--red-color);">삭제</button>
                 </div>
             </div>
         </main>
     </div>
+    
+    <footer>
+        <p>All rights reserved.</p>
+    </footer>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -118,9 +126,9 @@
         const sidebar = getEl('sidebar'), mainContainer = getEl('main-container'), initialLoader = getEl('initial-loader');
         const contentWrapper = getEl('content-wrapper'), imageContainer = getEl('image-container'), contentTitle = getEl('content-title');
         const contentBody = getEl('content-body'), copyButton = getEl('copy-button'), charCount = getEl('char-count');
-        const backToListButton = getEl('back-to-list-button'), editButton = getEl('edit-button');
+        const editButton = getEl('edit-button');
         const editForm = getEl('edit-form'), editTitleInput = getEl('edit-title-input'), editContentInput = getEl('edit-content-input'), editImageUrlsTextarea = getEl('edit-image-urls-textarea');
-        const saveButton = getEl('save-button'), cancelButton = getEl('cancel-button');
+        const saveButton = getEl('save-button'), cancelButton = getEl('cancel-button'), deleteNoteButton = getEl('delete-note-button');
         const settingsMenu = getEl('settings-menu'), settingsButton = getEl('settings-button'), settingsDropdown = getEl('settings-dropdown');
         const addTabButton = getEl('add-tab-button'), addNoteButton = getEl('add-note-button'), exportTabButton = getEl('export-tab-button'), deleteTabButton = getEl('delete-tab-button');
         
@@ -242,10 +250,11 @@
         };
 
         const saveNote = () => {
+            const finalTitle = editTitleInput.value.trim() || '새 노트';
             const imageUrls = editImageUrlsTextarea.value.trim().split('\n').filter(url => url.trim() !== '');
             const updatedNote = {
                 ...currentNote,
-                title: editTitleInput.value,
+                title: finalTitle,
                 content: editContentInput.value,
             };
 
@@ -272,6 +281,21 @@
             populateSidebar(loadedData[activeTab]);
             displayContent(newNote, document.querySelector('.sidebar-item'), 0);
             enterEditMode();
+        };
+
+        const deleteCurrentNote = () => {
+            if (editingNoteIndex === null || !confirm(`'${currentNote.title || '이 노트'}' 노트를 정말로 삭제하시겠습니까?`)) return;
+
+            loadedData[activeTab].splice(editingNoteIndex, 1);
+            saveDataToLocal();
+
+            currentNote = null;
+            editingNoteIndex = null;
+
+            populateSidebar(loadedData[activeTab]);
+            switchViewMode('none');
+            getEl('content-wrapper').classList.remove('visible');
+            showSidebarView();
         };
 
         const handleSearch = (e) => {
@@ -323,12 +347,12 @@
         // Event Listeners
         fileInput.addEventListener('change', handleFileSelect);
         searchInput.addEventListener('input', handleSearch);
-        backToListButton.addEventListener('click', showSidebarView);
         addTabButton.addEventListener('click', addNewTab);
         addNoteButton.addEventListener('click', addNewNote);
         editButton.addEventListener('click', enterEditMode);
         saveButton.addEventListener('click', saveNote);
         cancelButton.addEventListener('click', () => switchViewMode('view'));
+        deleteNoteButton.addEventListener('click', deleteCurrentNote);
         settingsButton.addEventListener('click', (e) => { e.stopPropagation(); settingsDropdown.style.display = settingsDropdown.style.display === 'block' ? 'none' : 'block'; });
         document.addEventListener('click', () => { settingsDropdown.style.display = 'none'; });
         exportTabButton.addEventListener('click', exportTabData);
@@ -336,42 +360,26 @@
         copyButton.addEventListener('click', () => {
             if (!currentNote || !currentNote.content) return;
 
-            // [핵심 수정] iOS의 클립보드 버그를 우회하기 위한 함수
             const copyToClipboardFallback = (str) => {
-                // 1. NFC 정규화 및 특수 공백 제거 (기존 로직 유지)
                 const cleanText = str.replace(/\u00A0/g, ' ').normalize('NFC');
-
-                // 2. 임시 textarea 엘리먼트 생성
                 const tempTextArea = document.createElement('textarea');
-                
-                // 3. iOS에서 화면이 흔들리는 것을 방지하기 위한 스타일 설정
                 tempTextArea.style.position = 'absolute';
                 tempTextArea.style.left = '-9999px';
                 tempTextArea.style.top = '0';
-                
-                // 4. 정리된 텍스트를 textarea에 할당
                 tempTextArea.value = cleanText;
                 document.body.appendChild(tempTextArea);
-                
-                // 5. iOS 기기에서 focus()와 select()를 모두 호출하여 선택 보장
                 tempTextArea.focus();
                 tempTextArea.select();
-
                 let success = false;
                 try {
-                    // 6. 복사 실행
                     success = document.execCommand('copy');
                 } catch (err) {
                     console.error('Fallback Copy: Oops, unable to copy', err);
                 }
-
-                // 7. 임시 textarea 제거
                 document.body.removeChild(tempTextArea);
-                
                 return success;
             };
 
-            // 복사 실행 및 UI 업데이트
             if (copyToClipboardFallback(currentNote.content)) {
                 copyButton.textContent = 'copied!';
                 setTimeout(() => { copyButton.textContent = 'copy'; }, 1500);
@@ -381,65 +389,49 @@
         });
         
         loadDataFromLocal();
-        // --- [NEW] Swipe Back Gesture for Mobile ---
-function initSwipeBackGesture() {
-    // 설정값: 이 값을 조절하여 민감도를 바꿀 수 있습니다.
-    const SWIPE_EDGE_ZONE = 50; // 스와이프가 시작되어야 하는 화면 왼쪽 가장자리 영역 (px)
-    const SWIPE_THRESHOLD = 80; // 스와이프로 인정되기 위한 최소한의 가로 이동 거리 (px)
 
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let isSwiping = false;
+        // --- Swipe Back Gesture for Mobile ---
+        function initSwipeBackGesture() {
+            const SWIPE_EDGE_ZONE = 50;
+            const SWIPE_THRESHOLD = 80;
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let isSwiping = false;
+            const contentArea = getEl('content-area');
 
-    // 제스처는 콘텐츠 영역에서만 동작하도록 설정
-    const contentArea = getEl('content-area');
+            contentArea.addEventListener('touchstart', (e) => {
+                if (e.touches.length > 1) return;
+                if (mainContainer.classList.contains('content-mode')) {
+                    const startX = e.touches[0].clientX;
+                    if (startX < SWIPE_EDGE_ZONE) {
+                        touchStartX = startX;
+                        touchStartY = e.touches[0].clientY;
+                        isSwiping = true;
+                    }
+                }
+            });
 
-    contentArea.addEventListener('touchstart', (e) => {
-        // 멀티터치(두 손가락 이상)는 무시
-        if (e.touches.length > 1) return;
+            contentArea.addEventListener('touchmove', (e) => {
+                if (!isSwiping) return;
+                const deltaX = e.touches[0].clientX - touchStartX;
+                const deltaY = e.touches[0].clientY - touchStartY;
+                if (Math.abs(deltaX) < Math.abs(deltaY)) {
+                    isSwiping = false;
+                }
+            });
 
-        // 화면이 콘텐츠 보기 모드일 때만 제스처를 감지
-        if (mainContainer.classList.contains('content-mode')) {
-            const startX = e.touches[0].clientX;
-            // 스와이프가 왼쪽 가장자리 영역에서 시작되었는지 확인
-            if (startX < SWIPE_EDGE_ZONE) {
-                touchStartX = startX;
-                touchStartY = e.touches[0].clientY;
-                isSwiping = true;
-            }
+            contentArea.addEventListener('touchend', (e) => {
+                if (!isSwiping) return;
+                isSwiping = false;
+                const touchEndX = e.changedTouches[0].clientX;
+                const swipeDistance = touchEndX - touchStartX;
+                if (swipeDistance > SWIPE_THRESHOLD) {
+                    showSidebarView();
+                }
+            });
         }
-    });
-
-    contentArea.addEventListener('touchmove', (e) => {
-        if (!isSwiping) return;
-
-        const deltaX = e.touches[0].clientX - touchStartX;
-        const deltaY = e.touches[0].clientY - touchStartY;
-
-        // 위아래 스크롤과 충돌하지 않도록, 수평 움직임이 수직 움직임보다 클 때만 스와이프로 간주
-        if (Math.abs(deltaX) < Math.abs(deltaY)) {
-            isSwiping = false; // 수직 스크롤로 판단하고 스와이프 취소
-        }
-    });
-
-    contentArea.addEventListener('touchend', (e) => {
-        if (!isSwiping) return;
-        
-        isSwiping = false;
-        const touchEndX = e.changedTouches[0].clientX;
-        const swipeDistance = touchEndX - touchStartX;
-
-        // 충분한 거리를 오른쪽으로 스와이프 했는지 확인
-        if (swipeDistance > SWIPE_THRESHOLD) {
-            showSidebarView(); // 기존에 만들어둔 '목록 보기' 함수를 호출
-        }
-    });
-}
+        initSwipeBackGesture(); // 제스처 기능 활성화
     });
     </script>
 </body>
-
 </html>
-
-
-
