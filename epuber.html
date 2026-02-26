@@ -37,7 +37,9 @@
         .user-divider { border: 0; border-top: 1px dashed #b2bec3; margin: 1.5em 0; }
         .bold { font-weight: bold; }
         .italic { font-style: italic; }
-        img { max-width: 100%; height: auto; display: block; margin: 5px auto; border-radius: 5px; }
+        
+        /* [수정] 이미지 위쪽은 띄우고(1.8em), 아래쪽은 바짝 붙이기(0.2em) */
+        img { max-width: 100%; height: auto; display: block; margin: 1.8em auto 0.2em auto; border-radius: 5px; }
         
         .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; color: white; font-size: 20px; font-weight: bold; flex-direction: column; text-align: center; line-height: 1.6; }
         .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #fbc531; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
@@ -78,12 +80,17 @@
                 <button id="add-hud-btn" class="btn-small btn-add">+ 추가</button>
             </label>
             <p style="font-size: 0.85rem; color: #ff4757; font-weight: bold; margin-top: 0;">※ 변하는 부분은 달러 3개($$$)로 쓰세요!</p>
-            <p style="font-size: 0.8rem; color: #7f8fa6; margin-top: 0;">예: **[ $$$ | $$$ ]**</p>
             <div id="hud-container"></div>
         </div>
 
         <div class="control-group">
-            <label>5. 옵션 설정</label>
+            <label>5. 나만의 무료 프록시 주소 (선택)</label>
+            <input type="text" id="my-proxy-url" placeholder="예: https://my-proxy.jerry.workers.dev">
+            <p style="font-size: 0.75rem; color: #7f8fa6; margin-top: 5px;">※ 413 에러나 엑스박스가 뜬다면 입력하세요.</p>
+        </div>
+
+        <div class="control-group">
+            <label>6. 옵션 설정</label>
             
             <label style="font-weight: normal; cursor: pointer; display: block; margin-bottom: 10px;">
                 <input type="checkbox" id="user-divider" checked>
@@ -92,13 +99,11 @@
             
             <label style="font-weight: normal; cursor: pointer; display: block;">
                 <input type="checkbox" id="remove-img">
-                '![이미지](주소)' 문구 완전 삭제<br>
-                <span style="font-size: 0.8rem; color: #e1b12c;">(체크 해제 시 서버를 우회하여 EPUB 안에 이미지를 내장합니다)</span>
+                '![이미지](주소)' 문구 완전 삭제
             </label>
         </div>
 
         <button class="btn" id="download-btn">✨ EPUB 다운로드 ✨</button>
-        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 15px;">※ 입력한 설정은 자동으로 임시저장됩니다.</p>
     </div>
 
     <div id="preview-pane">
@@ -117,6 +122,7 @@
         const coverInput = document.getElementById('cover-file');
         const titleInput = document.getElementById('book-title');
         const authorInput = document.getElementById('book-author');
+        const proxyInput = document.getElementById('my-proxy-url'); // 프록시 입력칸 추가
         const removeImgCheck = document.getElementById('remove-img');
         const userDividerCheck = document.getElementById('user-divider');
         const previewContent = document.getElementById('preview-content');
@@ -157,6 +163,7 @@
             const settings = {
                 title: titleInput.value,
                 author: authorInput.value,
+                proxy: proxyInput.value, // 프록시 주소 저장
                 huds: huds,
                 removeImg: removeImgCheck.checked,
                 useDivider: userDividerCheck.checked
@@ -171,6 +178,7 @@
                 const s = JSON.parse(savedSettings);
                 titleInput.value = s.title || '';
                 authorInput.value = s.author || '';
+                proxyInput.value = s.proxy || '';
                 removeImgCheck.checked = s.removeImg !== undefined ? s.removeImg : false;
                 userDividerCheck.checked = s.useDivider !== undefined ? s.useDivider : true;
 
@@ -181,9 +189,7 @@
 
             const savedJson = localStorage.getItem('epubStudioJson');
             if (savedJson) { currentJsonData = JSON.parse(savedJson); updatePreview(); }
-        }
-        
-        [titleInput, authorInput, removeImgCheck, userDividerCheck].forEach(el => {
+        }[titleInput, authorInput, proxyInput, removeImgCheck, userDividerCheck].forEach(el => {
             el.addEventListener('input', () => { saveSettings(); updatePreview(); });
         });
 
@@ -253,6 +259,7 @@
                 if (!text) return;
 
                 text = text.replace(/\n/g, '<br/>');
+                // 빈 줄 청소기 강화 (오직 찌꺼기만 없애고 디자인은 CSS에 맡김)
                 text = text.replace(/(?:<br\/>\s*)*(<img[^>]+>)(?:\s*<br\/>)*/g, '$1');
 
                 while (text.includes('**')) { text = text.replace('**', '<span class="bold">').replace('**', '</span>'); }
@@ -276,18 +283,29 @@
             previewContent.innerHTML = generateHTML(false);
         }
 
-        // --- 안전한 1개씩 다운로드 (오류 방어막 강화) ---
+        // --- 개인 프록시 주소 지원! ---
         async function fetchImageAsArrayBuffer(url) {
             // 1. 직접 시도
             try { let r = await fetch(url); if (r.ok) return await r.arrayBuffer(); } catch(e){}
             
-            // 2. 프록시 A 시도
+            // 2. [NEW] 개인 프록시 서버 시도! (있을 경우만)
+            const myProxy = proxyInput.value.trim();
+            if (myProxy) {
+                try {
+                    // url 파라미터로 붙여서 보냅니다.
+                    let customUrl = myProxy + (myProxy.includes('?') ? '&' : '?') + 'url=' + encodeURIComponent(url);
+                    let r = await fetch(customUrl);
+                    if (r.ok) return await r.arrayBuffer();
+                } catch(e) { console.error("개인 프록시 실패:", e); }
+            }
+
+            // 3. 공용 프록시 A 시도
             try { let r = await fetch('https://corsproxy.io/?' + encodeURIComponent(url)); if (r.ok) return await r.arrayBuffer(); } catch(e){}
             
-            // 3. 프록시 B 시도
+            // 4. 공용 프록시 B 시도
             try { let r = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)); if (r.ok) return await r.arrayBuffer(); } catch(e){}
             
-            return null; // 다 실패하면 포기 (엑스박스로 남김)
+            return null; 
         }
 
         downloadBtn.addEventListener('click', async () => {
@@ -312,7 +330,7 @@
                 let match;
                 let imageUrls =[];
                 while ((match = imgRegex.exec(bodyHtml)) !== null) { imageUrls.push(match[1]); }
-                imageUrls = [...new Set(imageUrls)]; 
+                imageUrls =[...new Set(imageUrls)]; 
 
                 let imageMap = {};
                 let completedCount = 0; 
@@ -320,7 +338,6 @@
 
                 progressText.innerText = `(0 / ${totalCount})`;
 
-                // [수정됨] 1개씩 순서대로 안전하게 다운로드!
                 for (let i = 0; i < imageUrls.length; i++) {
                     const originalUrl = imageUrls[i];
                     
@@ -340,7 +357,6 @@
                     progressText.innerText = `(${completedCount} / ${totalCount})`;
                 }
 
-                // 주소 교체
                 for (const [original, local] of Object.entries(imageMap)) {
                     bodyHtml = bodyHtml.split(original).join(local);
                 }
@@ -356,7 +372,7 @@ p { margin: 0.5em 0; text-align: justify; }
 .italic { font-style: italic; }
 .user-text { margin-top: 1.5em; margin-bottom: 1.5em; } 
 .user-divider { border: 0; border-top: 1px dashed #b2bec3; margin: 1.5em 0; }
-img { max-width: 100%; height: auto; display: block; margin: 5px auto; }`
+img { max-width: 100%; height: auto; display: block; margin: 1.8em auto 0.2em auto; }`
                 );
 
                 oebps.file("chap_01.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">\n<head><title>${title}</title><link rel="stylesheet" type="text/css" href="style/default.css"/></head>\n<body>${bodyHtml}</body>\n</html>`);
