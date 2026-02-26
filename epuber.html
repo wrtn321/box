@@ -37,20 +37,20 @@
         .user-divider { border: 0; border-top: 1px dashed #b2bec3; margin: 1.5em 0; }
         .bold { font-weight: bold; }
         .italic { font-style: italic; }
-        
-        /* 이미지 위아래 여백을 최소화 (10px -> 5px) */
         img { max-width: 100%; height: auto; display: block; margin: 5px auto; border-radius: 5px; }
         
-        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center; color: white; font-size: 20px; font-weight: bold; flex-direction: column; text-align: center; line-height: 1.5; }
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; color: white; font-size: 20px; font-weight: bold; flex-direction: column; text-align: center; line-height: 1.6; }
         .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #fbc531; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #progress-text { font-size: 28px; color: #fbc531; margin-top: 10px; font-weight: 900; }
     </style>
 </head>
 <body>
 
     <div class="loading-overlay" id="loading-screen">
         <div class="spinner"></div>
-        <div id="loading-text">EPUB을 포장하는 중입니다...<br>이미지를 5개씩 동시에 다운로드하고 있어요 🚀</div>
+        <div id="loading-desc">EPUB 포장 및 이미지 다운로드 중...🚀<br>안전하게 1개씩 차례대로 다운받고 있습니다.</div>
+        <div id="progress-text">(0 / 0)</div>
     </div>
 
     <div id="control-pane">
@@ -93,7 +93,7 @@
             <label style="font-weight: normal; cursor: pointer; display: block;">
                 <input type="checkbox" id="remove-img">
                 '![이미지](주소)' 문구 완전 삭제<br>
-                <span style="font-size: 0.8rem; color: #e1b12c;">(체크 해제 시 서버를 우회하여 EPUB 안에 이미지를 쾌속 내장합니다)</span>
+                <span style="font-size: 0.8rem; color: #e1b12c;">(체크 해제 시 서버를 우회하여 EPUB 안에 이미지를 내장합니다)</span>
             </label>
         </div>
 
@@ -124,6 +124,7 @@
         const addHudBtn = document.getElementById('add-hud-btn');
         const hudContainer = document.getElementById('hud-container');
         const loadingScreen = document.getElementById('loading-screen');
+        const progressText = document.getElementById('progress-text');
 
         addHudBtn.addEventListener('click', () => addHudField(''));
 
@@ -252,14 +253,11 @@
                 if (!text) return;
 
                 text = text.replace(/\n/g, '<br/>');
-                
-                //[핵심 수정 1] 이미지 앞뒤에 붙은 거슬리는 빈 줄(<br/>) 진공 청소기!
                 text = text.replace(/(?:<br\/>\s*)*(<img[^>]+>)(?:\s*<br\/>)*/g, '$1');
 
                 while (text.includes('**')) { text = text.replace('**', '<span class="bold">').replace('**', '</span>'); }
                 while (text.includes('*')) { text = text.replace('*', '<span class="italic">').replace('*', '</span>'); }
 
-                // [핵심 수정 2] AI 응답 끝의 강제 빈줄(html += <p><br/></p>) 삭제 완료!
                 if (role === 'assistant') {
                     html += `<p>${text}</p>\n`;
                 } else if (role === 'user') {
@@ -278,23 +276,18 @@
             previewContent.innerHTML = generateHTML(false);
         }
 
-        // --- 똑똑한 이미지 다운로더 (직접 시도 -> 프록시) ---
+        // --- 안전한 1개씩 다운로드 (오류 방어막 강화) ---
         async function fetchImageAsArrayBuffer(url) {
-            try {
-                // 1. 보안이 허술한 서버면 직접 쾌속 다운로드 (프록시 안 거침!)
-                let res = await fetch(url);
-                if (res.ok) return await res.arrayBuffer();
-            } catch(e) { }
-
-            try {
-                // 2. 깐깐한 서버면 프록시로 우회해서 다운로드
-                let proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-                let res = await fetch(proxyUrl);
-                if (res.ok) return await res.arrayBuffer();
-            } catch(e) {
-                console.error("다운로드 실패:", url);
-                return null;
-            }
+            // 1. 직접 시도
+            try { let r = await fetch(url); if (r.ok) return await r.arrayBuffer(); } catch(e){}
+            
+            // 2. 프록시 A 시도
+            try { let r = await fetch('https://corsproxy.io/?' + encodeURIComponent(url)); if (r.ok) return await r.arrayBuffer(); } catch(e){}
+            
+            // 3. 프록시 B 시도
+            try { let r = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)); if (r.ok) return await r.arrayBuffer(); } catch(e){}
+            
+            return null; // 다 실패하면 포기 (엑스박스로 남김)
         }
 
         downloadBtn.addEventListener('click', async () => {
@@ -302,6 +295,7 @@
 
             loadingScreen.style.display = 'flex';
             downloadBtn.disabled = true;
+            progressText.innerText = "(계산 중...)";
 
             try {
                 const zip = new JSZip();
@@ -318,36 +312,35 @@
                 let match;
                 let imageUrls =[];
                 while ((match = imgRegex.exec(bodyHtml)) !== null) { imageUrls.push(match[1]); }
-                imageUrls =[...new Set(imageUrls)]; // 중복 완벽 제거
+                imageUrls = [...new Set(imageUrls)]; 
 
                 let imageMap = {};
-                
-                //[핵심 수정 3] 속도 10배 향상: 이미지를 한 번에 5개씩 동시에 다운로드 (병렬 처리)
-                const batchSize = 5;
-                for (let i = 0; i < imageUrls.length; i += batchSize) {
-                    const batch = imageUrls.slice(i, i + batchSize);
-                    
-                    const promises = batch.map(async (originalUrl) => {
-                        const buffer = await fetchImageAsArrayBuffer(originalUrl);
-                        if (buffer) {
-                            const ext = originalUrl.split('.').pop().split('?')[0].toLowerCase();
-                            const safeExt =['png','jpg','jpeg','gif','webp'].includes(ext) ? ext : 'png';
-                            const mimeType = safeExt === 'jpg' ? 'image/jpeg' : `image/${safeExt}`;
-                            
-                            // 파일 이름 겹치지 않게 고유 인덱스 사용
-                            const imgIndex = imageUrls.indexOf(originalUrl);
-                            const fileName = `img_${imgIndex}.${safeExt}`;
+                let completedCount = 0; 
+                const totalCount = imageUrls.length;
 
-                            imagesFolder.file(fileName, buffer);
-                            manifestItems += `<item id="img_${imgIndex}" href="images/${fileName}" media-type="${mimeType}"/>\n`;
-                            imageMap[originalUrl] = `images/${fileName}`;
-                        }
-                    });
+                progressText.innerText = `(0 / ${totalCount})`;
+
+                // [수정됨] 1개씩 순서대로 안전하게 다운로드!
+                for (let i = 0; i < imageUrls.length; i++) {
+                    const originalUrl = imageUrls[i];
                     
-                    // 5개 다운로드가 끝날 때까지 대기 후 다음 5개 진행
-                    await Promise.all(promises);
+                    const buffer = await fetchImageAsArrayBuffer(originalUrl);
+                    if (buffer) {
+                        const ext = originalUrl.split('.').pop().split('?')[0].toLowerCase();
+                        const safeExt = ['png','jpg','jpeg','gif','webp'].includes(ext) ? ext : 'png';
+                        const mimeType = safeExt === 'jpg' ? 'image/jpeg' : `image/${safeExt}`;
+                        
+                        const fileName = `img_${i}.${safeExt}`;
+                        imagesFolder.file(fileName, buffer);
+                        manifestItems += `<item id="img_${i}" href="images/${fileName}" media-type="${mimeType}"/>\n`;
+                        imageMap[originalUrl] = `images/${fileName}`;
+                    }
+                    
+                    completedCount++;
+                    progressText.innerText = `(${completedCount} / ${totalCount})`;
                 }
 
+                // 주소 교체
                 for (const [original, local] of Object.entries(imageMap)) {
                     bodyHtml = bodyHtml.split(original).join(local);
                 }
