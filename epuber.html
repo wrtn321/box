@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPUB 뷰어</title>
+    <!-- E-Book 뷰어를 위한 외부 라이브러리(Epub.js) 로드 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+
+    <style>
+        /* --- 페이지 전체 스타일 --- */
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            height: 100vh;
+        }
+
+        /* --- 상단 컨트롤 영역 --- */
+        .controls {
+            padding: 15px;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: 100%;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        
+        #upload-label {
+            display: inline-block;
+            padding: 8px 15px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        #book-upload {
+            display: none; /* 실제 파일 버튼은 숨김 */
+        }
+        
+        .filename {
+            margin-left: 15px;
+            font-style: italic;
+            color: #555;
+        }
+
+        /* --- 책이 표시될 뷰어 영역 --- */
+        #viewer-container {
+            width: 100%;
+            max-width: 800px; /* 책 최대 너비 */
+            flex-grow: 1;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            margin: 20px 0;
+            background-color: white;
+        }
+        
+        #viewer {
+            height: 100%;
+        }
+
+        /* --- 하단 네비게이션 영역 --- */
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 800px;
+            padding: 10px 20px;
+            box-sizing: border-box;
+            background-color: #fff;
+            margin-bottom: 10px;
+        }
+        
+        .nav-button {
+            padding: 10px 20px;
+            border: none;
+            background-color: #333;
+            color: white;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .nav-button:hover {
+            background-color: #555;
+        }
+
+        #location {
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. 상단 컨트롤 영역 -->
+    <div class="controls">
+        <label for="book-upload" id="upload-label">🦊 EPUB 파일 선택</label>
+        <input type="file" id="book-upload" accept=".epub">
+        <span class="filename" id="filename-display">선택된 파일 없음</span>
+    </div>
+
+    <!-- 2. 책 내용이 나타날 영역 -->
+    <div id="viewer-container">
+        <div id="viewer"></div>
+    </div>
+    
+    <!-- 3. 페이지 넘김 버튼 영역 -->
+    <div class="navigation">
+        <button id="prev" class="nav-button">◀ 이전</button>
+        <div id="location"></div>
+        <button id="next" class="nav-button">다음 ▶</button>
+    </div>
+
+    <script>
+        // --- E-Book 뷰어 로직 ---
+        
+        const fileInput = document.getElementById('book-upload');
+        const filenameDisplay = document.getElementById('filename-display');
+        let book = null;
+        let rendition = null;
+
+        // 파일이 선택되었을 때 실행될 함수
+        fileInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // 기존에 열려있던 책이 있다면 제거
+                if (book) {
+                    book.destroy();
+                }
+                
+                filenameDisplay.textContent = file.name; // 파일 이름 표시
+                
+                // Epub.js로 책 로드
+                book = ePub(file.path || URL.createObjectURL(file));
+
+                // 뷰어 영역에 책 렌더링
+                rendition = book.renderTo("viewer", {
+                    width: "100%",
+                    height: "100%",
+                    // spread: "auto" // 양면 보기 (필요시 주석 해제)
+                });
+
+                // 첫 페이지 표시
+                rendition.display();
+
+                // 페이지가 바뀔 때마다 위치 정보 업데이트
+                rendition.on("relocated", function(location) {
+                    const currentPage = location.start.location;
+                    const totalPages = book.locations.total;
+                    const percentage = Math.floor(book.locations.percentageFromCfi(location.start.cfi) * 100);
+                    document.getElementById('location').textContent = `${percentage}%`;
+                });
+            }
+        });
+
+        // 이전/다음 버튼 기능
+        const prevButton = document.getElementById('prev');
+        const nextButton = document.getElementById('next');
+
+        prevButton.addEventListener('click', function() {
+            if (rendition) {
+                rendition.prev();
+            }
+        });
+
+        nextButton.addEventListener('click', function() {
+            if (rendition) {
+                rendition.next();
+            }
+        });
+
+        // 키보드 화살표로 페이지 넘기기
+        document.addEventListener('keydown', function(event) {
+            if (rendition) {
+                if (event.key === 'ArrowLeft') {
+                    rendition.prev();
+                } else if (event.key === 'ArrowRight') {
+                    rendition.next();
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>
