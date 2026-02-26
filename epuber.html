@@ -11,7 +11,7 @@
     <style>
         body { margin: 0; font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: row; height: 100vh; background-color: #f5f6fa; }
         
-        /* 1. 왼쪽: 컨트롤 영역 (설정창을 왼쪽으로 배치) */
+        /* 왼쪽: 설정창 영역 */
         #control-pane {
             width: 450px;
             background-color: white;
@@ -21,7 +21,7 @@
             z-index: 10;
         }
 
-        /* 2. 오른쪽: 미리보기 영역 */
+        /* 오른쪽: 미리보기 영역 */
         #preview-pane {
             flex: 1;
             background-color: #e1e2e6;
@@ -42,13 +42,13 @@
             font-size: 15px;
         }
 
-        /* 컨트롤 영역 내부 디자인 */
+        /* 컨트롤 영역 디자인 */
         .control-group { margin-bottom: 25px; }
         .control-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #353b48; }
         input[type="text"] { width: 100%; padding: 10px; border: 1px solid #dcdde1; border-radius: 4px; box-sizing: border-box; }
         input[type="file"] { display: block; margin-top: 5px; }
         
-        /* 다중 HUD 입력칸 디자인 */
+        /* 다중 HUD */
         .hud-item { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-start; }
         .hud-input { 
             flex: 1; padding: 10px; border: 1px solid #dcdde1; border-radius: 4px; 
@@ -69,7 +69,8 @@
         .btn:hover { background-color: #e1b12c; }
         
         /* 뷰어 내부 스타일 적용용 */
-        .user-text { margin-top: 0.5em; margin-bottom: 0.5em; }
+        .user-text { margin-top: 1.5em; margin-bottom: 1.5em; } /* 유저 여백 조정 */
+        .user-divider { border: 0; border-top: 1px dashed #b2bec3; margin: 1.5em 0; } /* 구분선 */
         .bold { font-weight: bold; }
         .italic { font-style: italic; }
         img { max-width: 100%; height: auto; display: block; margin: 10px auto; border-radius: 5px; }
@@ -103,14 +104,18 @@
                 <button id="add-hud-btn" class="btn-small btn-add">+ 추가</button>
             </label>
             <p style="font-size: 0.85rem; color: #7f8fa6; margin-top: 0;">여러 줄(엔터)이 있는 코드블럭도 복붙 가능!</p>
-            <div id="hud-container">
-                <!-- HUD 입력칸이 여기에 동적으로 추가됩니다 -->
-            </div>
+            <div id="hud-container"></div>
         </div>
 
         <div class="control-group">
-            <label>5. 이미지 설정</label>
-            <label style="font-weight: normal; cursor: pointer;">
+            <label>5. 옵션 설정</label>
+            
+            <label style="font-weight: normal; cursor: pointer; display: block; margin-bottom: 10px;">
+                <input type="checkbox" id="user-divider">
+                유저 대사 위아래로 구분선(---) 넣기
+            </label>
+            
+            <label style="font-weight: normal; cursor: pointer; display: block;">
                 <input type="checkbox" id="remove-img" checked>
                 '![이미지](주소)' 문구 완전 삭제<br>
                 <span style="font-size: 0.8rem; color: #e1b12c;">(체크 해제 시 실제 책에 이미지로 삽입됨)</span>
@@ -141,19 +146,19 @@
         const titleInput = document.getElementById('book-title');
         const authorInput = document.getElementById('book-author');
         const removeImgCheck = document.getElementById('remove-img');
+        const userDividerCheck = document.getElementById('user-divider'); // 추가된 구분선 체크박스
         const previewContent = document.getElementById('preview-content');
         const downloadBtn = document.getElementById('download-btn');
         const addHudBtn = document.getElementById('add-hud-btn');
         const hudContainer = document.getElementById('hud-container');
 
-        // --- 1. HUD 동적 추가/삭제 기능 ---
+        // --- HUD 동적 추가/삭제 ---
         addHudBtn.addEventListener('click', () => addHudField(''));
 
         function addHudField(value = '') {
             const div = document.createElement('div');
             div.className = 'hud-item';
 
-            // 텍스트에어리어 (여러줄 입력 가능)
             const input = document.createElement('textarea');
             input.className = 'hud-input';
             input.rows = 2;
@@ -161,11 +166,9 @@
             input.placeholder = "예: **[ * ]**\n(코드블럭 복붙 가능)";
             input.addEventListener('input', () => { saveSettings(); updatePreview(); });
 
-            // 삭제 버튼
             const rmBtn = document.createElement('button');
             rmBtn.className = 'btn-small btn-remove';
             rmBtn.textContent = 'X';
-            rmBtn.title = "이 패턴 지우기";
             rmBtn.onclick = () => { div.remove(); saveSettings(); updatePreview(); };
 
             div.appendChild(input);
@@ -176,24 +179,18 @@
             updatePreview();
         }
 
-        // --- 2. 임시저장 (로컬스토리지) ---
+        // --- 임시저장 ---
         function saveSettings() {
-            // 모든 HUD 입력값 수집
-            const huds = Array.from(document.querySelectorAll('.hud-input'))
-                              .map(el => el.value)
-                              .filter(v => v.trim() !== '');
-
+            const huds = Array.from(document.querySelectorAll('.hud-input')).map(el => el.value).filter(v => v.trim() !== '');
             const settings = {
                 title: titleInput.value,
                 author: authorInput.value,
                 huds: huds,
-                removeImg: removeImgCheck.checked
+                removeImg: removeImgCheck.checked,
+                useDivider: userDividerCheck.checked
             };
             localStorage.setItem('epubStudioSettings', JSON.stringify(settings));
-            
-            if(currentJsonData) {
-                localStorage.setItem('epubStudioJson', JSON.stringify(currentJsonData));
-            }
+            if(currentJsonData) localStorage.setItem('epubStudioJson', JSON.stringify(currentJsonData));
         }
 
         function loadSettings() {
@@ -203,27 +200,20 @@
                 titleInput.value = s.title || '';
                 authorInput.value = s.author || '';
                 removeImgCheck.checked = s.removeImg !== undefined ? s.removeImg : true;
+                userDividerCheck.checked = s.useDivider || false;
 
-                hudContainer.innerHTML = ''; // 초기화
-                if (s.huds && s.huds.length > 0) {
-                    s.huds.forEach(val => addHudField(val));
-                } else {
-                    addHudField(''); // 최소 1개는 생성
-                }
-            } else {
-                addHudField('');
-            }
+                hudContainer.innerHTML = '';
+                if (s.huds && s.huds.length > 0) s.huds.forEach(val => addHudField(val));
+                else addHudField('');
+            } else { addHudField(''); }
 
             const savedJson = localStorage.getItem('epubStudioJson');
-            if (savedJson) {
-                currentJsonData = JSON.parse(savedJson);
-                updatePreview();
-            }
-        }[titleInput, authorInput, removeImgCheck].forEach(el => {
+            if (savedJson) { currentJsonData = JSON.parse(savedJson); updatePreview(); }
+        }[titleInput, authorInput, removeImgCheck, userDividerCheck].forEach(el => {
             el.addEventListener('input', () => { saveSettings(); updatePreview(); });
         });
 
-        // --- 3. 파일 업로드 처리 ---
+        // --- 파일 업로드 처리 ---
         jsonInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -232,15 +222,14 @@
             reader.onload = function(event) {
                 try {
                     currentJsonData = JSON.parse(event.target.result);
-                    if (!titleInput.value) titleInput.value = currentJsonData.title || '';
-                    if (!authorInput.value && currentJsonData.userPersona) {
-                        authorInput.value = currentJsonData.userPersona.name || '';
-                    }
+                    
+                    //[수정1] 새 파일이 올라오면 무조건 기존 값을 덮어씌웁니다!
+                    titleInput.value = currentJsonData.title || '제목 없음';
+                    authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || 'Unknown';
+                    
                     saveSettings();
                     updatePreview();
-                } catch (err) {
-                    alert("JSON 파싱 에러! 올바른 파일인지 확인해주세요.");
-                }
+                } catch (err) { alert("JSON 파일 오류!"); }
             };
             reader.readAsText(file);
         });
@@ -254,10 +243,8 @@
             reader.readAsArrayBuffer(file);
         });
 
-        // --- 4. 파이썬 로직을 이식한 텍스트 렌더링 엔진 ---
-        function escapeRegExp(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
+        // --- 렌더링 엔진 ---
+        function escapeRegExp(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
         function generateHTML() {
             if (!currentJsonData) return "";
@@ -265,72 +252,52 @@
             let html = `<h2>${titleInput.value || '제목 없음'}</h2>\n`;
             const messages = currentJsonData.messages ||[];
             
-            // 등록된 모든 HUD 패턴 정규식 변환 (다중 HUD & 여러줄 대응 [\\s\\S]*?)
-            const hudPatterns = Array.from(document.querySelectorAll('.hud-input'))
-                                     .map(el => el.value.trim())
-                                     .filter(v => v !== '');
-            
+            const hudPatterns = Array.from(document.querySelectorAll('.hud-input')).map(el => el.value.trim()).filter(v => v !== '');
             let hudRegexes = hudPatterns.map(pattern => {
-                // 사용자가 입력한 패턴 안의 특수문자(<, >)도 이스케이프해야 안전함
                 let escapedPattern = pattern.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 const parts = escapedPattern.split('*');
                 const escaped = parts.map(escapeRegExp);
                 return new RegExp(escaped.join('[\\s\\S]*?') + '\\n?', 'g');
             });
 
-            let previousRole = null; // AI와 유저 사이 빈줄 추가용 변수
-
             messages.forEach(msg => {
                 let text = msg.content || '';
                 const role = msg.role;
 
-                // [중요] 1. 애플북스 오류 방지를 위한 XML 특수문자 치환 (가장 먼저!)
                 text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-                // 2. 각 줄 끝 공백 제거
                 text = text.split('\n').map(line => line.trimEnd()).join('\n');
 
-                // 3. 이미지 처리 (애플북스를 위해 태그 끝에 '/' 추가 -> <img ... />)
+                // [수정4] 이미지 정규식 강화 (주소 안에 괄호가 있어도 완벽 변환)
                 if (removeImgCheck.checked) {
-                    text = text.replace(/!\[([^\]]*)\]\([^)]*\)\n?/g, '');
+                    text = text.replace(/!\[(.*?)\]\((.*?)\)\n?/g, '');
                 } else {
-                    text = text.replace(/!\[([^\]]*)\]\(([^)]*)\)/g, '<img src="$2" alt="$1" />');
+                    text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" />');
                 }
 
-                // 4. 다중 HUD 처리
-                hudRegexes.forEach(regex => {
-                    text = text.replace(regex, '');
-                });
+                hudRegexes.forEach(regex => { text = text.replace(regex, ''); });
 
-                // 5. 빈 줄 청소
                 text = text.trim();
                 text = text.replace(/\n{3,}/g, '\n\n');
 
                 if (!text) return;
 
-                // 6. 마크다운 변환
                 text = text.replace(/\n/g, '<br/>');
                 while (text.includes('**')) { text = text.replace('**', '<span class="bold">').replace('**', '</span>'); }
                 while (text.includes('*')) { text = text.replace('*', '<span class="italic">').replace('*', '</span>'); }
 
-                // 7. 역할별 출력 및 [공백 추가 로직]
-                // AI 응답 직후 유저 응답일 때 '완전 빈 줄(엔터)' 추가!
-                if (role === 'user' && previousRole === 'assistant') {
-                    html += `<p><br/></p>\n`;
-                }
-
+                // [수정2 & 3] 역할별 출력 (여백 및 구분선 추가)
                 if (role === 'assistant') {
                     html += `<p>${text}</p>\n`;
                 } else if (role === 'user') {
+                    // 유저 구분선 체크 시 위쪽에 점선 추가
+                    if (userDividerCheck.checked) html += `<hr class="user-divider"/>\n`;
                     html += `<p class="user-text">${text}</p>\n`;
+                    // 유저 구분선 체크 시 아래쪽에 점선 추가
+                    if (userDividerCheck.checked) html += `<hr class="user-divider"/>\n`;
                 } else {
                     html += `<p>${text}</p>\n`;
                 }
-
-                // 현재 역할을 '이전 역할'로 저장
-                previousRole = role; 
             });
-
             return html;
         }
 
@@ -339,12 +306,9 @@
             previewContent.innerHTML = generateHTML();
         }
 
-        // --- 5. EPUB 패키징 ---
+        // --- EPUB 패키징 ---
         downloadBtn.addEventListener('click', () => {
-            if (!currentJsonData) {
-                alert("먼저 JSON 파일을 업로드해주세요!");
-                return;
-            }
+            if (!currentJsonData) { alert("먼저 JSON 파일을 업로드해주세요!"); return; }
 
             const zip = new JSZip();
             const title = titleInput.value || "제목 없음";
@@ -352,38 +316,24 @@
             const bodyHtml = generateHTML();
 
             zip.file("mimetype", "application/epub+zip", {compression: "STORE"});
-            zip.folder("META-INF").file("container.xml", 
-`<?xml version="1.0" encoding="UTF-8"?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-    <rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>
-</container>`);
+            zip.folder("META-INF").file("container.xml", `<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
 
             const oebps = zip.folder("OEBPS");
+            
+            // [수정3 CSS] 유저 여백(1.5em) 및 점선(user-divider) 디자인 추가
             oebps.folder("style").file("default.css", 
 `@namespace epub "http://www.idpf.org/2007/ops";
 body { font-family: sans-serif; line-height: 1.8; }
 p { margin: 0.5em 0; text-align: justify; }
 .bold { font-weight: bold; }
 .italic { font-style: italic; }
-.user-text { margin-top: 0.5em; margin-bottom: 0.5em; }
+.user-text { margin-top: 1.5em; margin-bottom: 1.5em; } 
+.user-divider { border: 0; border-top: 1px dashed #b2bec3; margin: 1.5em 0; }
 img { max-width: 100%; height: auto; display: block; margin: 10px auto; }`
             );
 
-            oebps.file("chap_01.xhtml", 
-`<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">
-<head><title>${title}</title><link rel="stylesheet" type="text/css" href="style/default.css"/></head>
-<body>${bodyHtml}</body>
-</html>`);
-
-            oebps.file("nav.xhtml", 
-`<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
-<head><title>Navigation</title></head>
-<body><nav epub:type="toc" id="toc"><h1>목차</h1><ol><li><a href="chap_01.xhtml">본문</a></li></ol></nav></body>
-</html>`);
+            oebps.file("chap_01.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">\n<head><title>${title}</title><link rel="stylesheet" type="text/css" href="style/default.css"/></head>\n<body>${bodyHtml}</body>\n</html>`);
+            oebps.file("nav.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n<head><title>Navigation</title></head>\n<body><nav epub:type="toc" id="toc"><h1>목차</h1><ol><li><a href="chap_01.xhtml">본문</a></li></ol></nav></body>\n</html>`);
 
             let coverMeta = "", coverItem = "";
             if (coverFileContent) {
@@ -394,26 +344,9 @@ img { max-width: 100%; height: auto; display: block; margin: 10px auto; }`
                 coverItem = `<item id="cover-image" href="cover.${ext}" media-type="${mimeType}"/>`;
             }
 
-            oebps.file("content.opf", 
-`<?xml version="1.0" encoding="UTF-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">
-    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>
-        <dc:identifier id="pub-id">urn:uuid:fox-epub-12345</dc:identifier>
-        ${coverMeta}
-    </metadata>
-    <manifest>
-        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
-        <item id="chap1" href="chap_01.xhtml" media-type="application/xhtml+xml"/>
-        <item id="css" href="style/default.css" media-type="text/css"/>
-        ${coverItem}
-    </manifest>
-    <spine><itemref idref="chap1"/></spine>
-</package>`);
+            oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">\n    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>\n        <dc:identifier id="pub-id">urn:uuid:fox-epub-12345</dc:identifier>\n        ${coverMeta}\n    </metadata>\n    <manifest>\n        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n        <item id="chap1" href="chap_01.xhtml" media-type="application/xhtml+xml"/>\n        <item id="css" href="style/default.css" media-type="text/css"/>\n        ${coverItem}\n    </manifest>\n    <spine><itemref idref="chap1"/></spine>\n</package>`);
 
-            zip.generateAsync({type:"blob", mimeType: "application/epub+zip"}).then(function(content) {
-                saveAs(content, title + ".epub");
-            });
+            zip.generateAsync({type:"blob", mimeType: "application/epub+zip"}).then(function(content) { saveAs(content, title + ".epub"); });
         });
 
         window.onload = loadSettings;
