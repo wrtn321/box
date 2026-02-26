@@ -11,74 +11,46 @@
     <style>
         body { margin: 0; font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: row; height: 100vh; background-color: #f5f6fa; }
         
-        /* 왼쪽: 설정창 영역 */
-        #control-pane {
-            width: 450px;
-            background-color: white;
-            padding: 30px;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
-            overflow-y: auto;
-            z-index: 10;
-        }
-
-        /* 오른쪽: 미리보기 영역 */
-        #preview-pane {
-            flex: 1;
-            background-color: #e1e2e6;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-        }
-        
+        #control-pane { width: 450px; background-color: white; padding: 30px; box-shadow: 2px 0 10px rgba(0,0,0,0.05); overflow-y: auto; z-index: 10; }
+        #preview-pane { flex: 1; background-color: #e1e2e6; padding: 20px; display: flex; flex-direction: column; }
         .pane-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; color: #2f3640; }
-        #preview-content {
-            flex: 1;
-            background-color: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            overflow-y: auto;
-            line-height: 1.8;
-            font-size: 15px;
-        }
+        #preview-content { flex: 1; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow-y: auto; line-height: 1.8; font-size: 15px; }
 
-        /* 컨트롤 영역 디자인 */
         .control-group { margin-bottom: 25px; }
         .control-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #353b48; }
         input[type="text"] { width: 100%; padding: 10px; border: 1px solid #dcdde1; border-radius: 4px; box-sizing: border-box; }
         input[type="file"] { display: block; margin-top: 5px; }
         
-        /* 다중 HUD */
         .hud-item { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-start; }
-        .hud-input { 
-            flex: 1; padding: 10px; border: 1px solid #dcdde1; border-radius: 4px; 
-            resize: vertical; box-sizing: border-box; font-family: inherit; min-height: 45px;
-        }
+        .hud-input { flex: 1; padding: 10px; border: 1px solid #dcdde1; border-radius: 4px; resize: vertical; box-sizing: border-box; font-family: inherit; min-height: 45px; }
         .btn-small { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .btn-add { background-color: #7bed9f; color: #2f3640; float: right; font-size: 0.9rem;}
         .btn-add:hover { background-color: #2ed573; }
         .btn-remove { background-color: #ff6b81; color: white; height: 45px; }
         .btn-remove:hover { background-color: #ff4757; }
 
-        .btn {
-            display: block; width: 100%; padding: 15px; background-color: #fbc531;
-            color: #2f3640; text-align: center; font-weight: bold; font-size: 1.1rem;
-            border: none; border-radius: 6px; cursor: pointer; transition: 0.2s;
-            margin-top: 10px;
-        }
+        .btn { display: block; width: 100%; padding: 15px; background-color: #fbc531; color: #2f3640; text-align: center; font-weight: bold; font-size: 1.1rem; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; margin-top: 10px; }
         .btn:hover { background-color: #e1b12c; }
+        .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
         
-        /* 뷰어 내부 스타일 적용용 */
-        .user-text { margin-top: 1.5em; margin-bottom: 1.5em; } /* 유저 여백 조정 */
-        .user-divider { border: 0; border-top: 1px dashed #b2bec3; margin: 1.5em 0; } /* 구분선 */
+        .user-text { margin-top: 1.5em; margin-bottom: 1.5em; } 
+        .user-divider { border: 0; border-top: 1px dashed #b2bec3; margin: 1.5em 0; }
         .bold { font-weight: bold; }
         .italic { font-style: italic; }
         img { max-width: 100%; height: auto; display: block; margin: 10px auto; border-radius: 5px; }
+        
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; color: white; font-size: 24px; font-weight: bold; flex-direction: column; }
+        .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #fbc531; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <!-- 왼쪽: 설정 및 조작부 -->
+    <div class="loading-overlay" id="loading-screen">
+        <div class="spinner"></div>
+        <div id="loading-text">EPUB 패키징 중...<br>(이미지를 다운로드하고 있습니다)</div>
+    </div>
+
     <div id="control-pane">
         <h2 style="margin-top: 0;">EPUB 설정</h2>
         
@@ -103,7 +75,9 @@
                 4. HUD(상태창) 패턴 
                 <button id="add-hud-btn" class="btn-small btn-add">+ 추가</button>
             </label>
-            <p style="font-size: 0.85rem; color: #7f8fa6; margin-top: 0;">여러 줄(엔터)이 있는 코드블럭도 복붙 가능!</p>
+            <!--[중요] 변하는 부분을 * 대신 $$$로 변경! -->
+            <p style="font-size: 0.85rem; color: #ff4757; font-weight: bold; margin-top: 0;">※ 변하는 부분은 무조건 달러 3개($$$)로 쓰세요!</p>
+            <p style="font-size: 0.8rem; color: #7f8fa6; margin-top: 0;">예: **[ $$$ | $$$ ]**</p>
             <div id="hud-container"></div>
         </div>
 
@@ -111,14 +85,14 @@
             <label>5. 옵션 설정</label>
             
             <label style="font-weight: normal; cursor: pointer; display: block; margin-bottom: 10px;">
-                <input type="checkbox" id="user-divider">
+                <input type="checkbox" id="user-divider" checked>
                 유저 대사 위아래로 구분선(---) 넣기
             </label>
             
             <label style="font-weight: normal; cursor: pointer; display: block;">
-                <input type="checkbox" id="remove-img" checked>
+                <input type="checkbox" id="remove-img">
                 '![이미지](주소)' 문구 완전 삭제<br>
-                <span style="font-size: 0.8rem; color: #e1b12c;">(체크 해제 시 실제 책에 이미지로 삽입됨)</span>
+                <span style="font-size: 0.8rem; color: #e1b12c;">(체크 해제 시 서버를 우회하여 EPUB 안에 이미지를 자동 내장합니다)</span>
             </label>
         </div>
 
@@ -126,7 +100,6 @@
         <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 15px;">※ 입력한 설정은 자동으로 임시저장됩니다.</p>
     </div>
 
-    <!-- 오른쪽: 실시간 미리보기 -->
     <div id="preview-pane">
         <div class="pane-title">📖 실시간 미리보기</div>
         <div id="preview-content">
@@ -135,24 +108,23 @@
     </div>
 
     <script>
-        // 전역 변수
         let currentJsonData = null;
         let coverFileContent = null;
         let coverFileName = null;
 
-        // UI 요소
         const jsonInput = document.getElementById('json-file');
         const coverInput = document.getElementById('cover-file');
         const titleInput = document.getElementById('book-title');
         const authorInput = document.getElementById('book-author');
         const removeImgCheck = document.getElementById('remove-img');
-        const userDividerCheck = document.getElementById('user-divider'); // 추가된 구분선 체크박스
+        const userDividerCheck = document.getElementById('user-divider');
         const previewContent = document.getElementById('preview-content');
         const downloadBtn = document.getElementById('download-btn');
         const addHudBtn = document.getElementById('add-hud-btn');
         const hudContainer = document.getElementById('hud-container');
+        const loadingScreen = document.getElementById('loading-screen');
 
-        // --- HUD 동적 추가/삭제 ---
+        // --- HUD 설정 ($$$ 사용) ---
         addHudBtn.addEventListener('click', () => addHudField(''));
 
         function addHudField(value = '') {
@@ -163,7 +135,7 @@
             input.className = 'hud-input';
             input.rows = 2;
             input.value = value;
-            input.placeholder = "예: **[ * ]**\n(코드블럭 복붙 가능)";
+            input.placeholder = "예: **[ $$$ ]**";
             input.addEventListener('input', () => { saveSettings(); updatePreview(); });
 
             const rmBtn = document.createElement('button');
@@ -199,8 +171,8 @@
                 const s = JSON.parse(savedSettings);
                 titleInput.value = s.title || '';
                 authorInput.value = s.author || '';
-                removeImgCheck.checked = s.removeImg !== undefined ? s.removeImg : true;
-                userDividerCheck.checked = s.useDivider || false;
+                removeImgCheck.checked = s.removeImg !== undefined ? s.removeImg : false;
+                userDividerCheck.checked = s.useDivider !== undefined ? s.useDivider : true;
 
                 hudContainer.innerHTML = '';
                 if (s.huds && s.huds.length > 0) s.huds.forEach(val => addHudField(val));
@@ -213,7 +185,7 @@
             el.addEventListener('input', () => { saveSettings(); updatePreview(); });
         });
 
-        // --- 파일 업로드 처리 ---
+        // --- 파일 업로드 ---
         jsonInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -222,11 +194,8 @@
             reader.onload = function(event) {
                 try {
                     currentJsonData = JSON.parse(event.target.result);
-                    
-                    //[수정1] 새 파일이 올라오면 무조건 기존 값을 덮어씌웁니다!
                     titleInput.value = currentJsonData.title || '제목 없음';
                     authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || 'Unknown';
-                    
                     saveSettings();
                     updatePreview();
                 } catch (err) { alert("JSON 파일 오류!"); }
@@ -243,22 +212,25 @@
             reader.readAsArrayBuffer(file);
         });
 
-        // --- 렌더링 엔진 ---
+        // --- HTML 렌더링 엔진 ---
         function escapeRegExp(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
-        function generateHTML() {
+        // EPUB 빌드용인지, 미리보기용인지 구분 (isForEpub=true 이면 실제 <img> 태그 생성 안함)
+        function generateHTML(isForEpub = false) {
             if (!currentJsonData) return "";
-
             let html = `<h2>${titleInput.value || '제목 없음'}</h2>\n`;
             const messages = currentJsonData.messages ||[];
             
+            // HUD 뇌정지 방지 로직: '*' 대신 '$$$' 기준으로 자르기
             const hudPatterns = Array.from(document.querySelectorAll('.hud-input')).map(el => el.value.trim()).filter(v => v !== '');
             let hudRegexes = hudPatterns.map(pattern => {
                 let escapedPattern = pattern.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const parts = escapedPattern.split('*');
+                const parts = escapedPattern.split('$$$'); // 별표 대신 달러기호로 분리!
                 const escaped = parts.map(escapeRegExp);
                 return new RegExp(escaped.join('[\\s\\S]*?') + '\\n?', 'g');
             });
+
+            let previousRole = null;
 
             messages.forEach(msg => {
                 let text = msg.content || '';
@@ -267,11 +239,15 @@
                 text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 text = text.split('\n').map(line => line.trimEnd()).join('\n');
 
-                // [수정4] 이미지 정규식 강화 (주소 안에 괄호가 있어도 완벽 변환)
+                // 이미지 처리 (EPUB용이면 나중에 프록시로 채울 수 있게 고유 표시만 해둠)
                 if (removeImgCheck.checked) {
                     text = text.replace(/!\[(.*?)\]\((.*?)\)\n?/g, '');
                 } else {
-                    text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" />');
+                    if (isForEpub) {
+                        text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img class="epub-image-target" src="$2" alt="$1" />');
+                    } else {
+                        text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" />');
+                    }
                 }
 
                 hudRegexes.forEach(regex => { text = text.replace(regex, ''); });
@@ -285,43 +261,106 @@
                 while (text.includes('**')) { text = text.replace('**', '<span class="bold">').replace('**', '</span>'); }
                 while (text.includes('*')) { text = text.replace('*', '<span class="italic">').replace('*', '</span>'); }
 
-                // [수정2 & 3] 역할별 출력 (여백 및 구분선 추가)
+                // 역할 공백 및 유저 구분선(---)
+                if (role === 'user' && previousRole === 'assistant') { html += `<p><br/></p>\n`; }
+
                 if (role === 'assistant') {
                     html += `<p>${text}</p>\n`;
                 } else if (role === 'user') {
-                    // 유저 구분선 체크 시 위쪽에 점선 추가
                     if (userDividerCheck.checked) html += `<hr class="user-divider"/>\n`;
                     html += `<p class="user-text">${text}</p>\n`;
-                    // 유저 구분선 체크 시 아래쪽에 점선 추가
                     if (userDividerCheck.checked) html += `<hr class="user-divider"/>\n`;
                 } else {
                     html += `<p>${text}</p>\n`;
                 }
+                previousRole = role; 
             });
             return html;
         }
 
         function updatePreview() {
             if (!currentJsonData) return;
-            previewContent.innerHTML = generateHTML();
+            previewContent.innerHTML = generateHTML(false);
         }
 
-        // --- EPUB 패키징 ---
-        downloadBtn.addEventListener('click', () => {
-            if (!currentJsonData) { alert("먼저 JSON 파일을 업로드해주세요!"); return; }
+        // --- 우회 서버(Proxy) 이미지 다운로드 기능 ---
+        async function fetchImageAsArrayBuffer(url) {
+            // 1. 보안이 허술한 서버면 직접 다운로드 시도
+            try {
+                let res = await fetch(url);
+                if (res.ok) return await res.arrayBuffer();
+            } catch(e) { console.log("직접 다운로드 실패, 프록시 우회 시작..."); }
 
-            const zip = new JSZip();
-            const title = titleInput.value || "제목 없음";
-            const author = authorInput.value || "Unknown";
-            const bodyHtml = generateHTML();
+            // 2. 안 되면 무료 우회 서버(Proxy)를 거쳐서 훔쳐오기 (CORS 우회)
+            try {
+                let proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+                let res = await fetch(proxyUrl);
+                if (res.ok) return await res.arrayBuffer();
+            } catch(e) {
+                console.error("프록시 우회 다운로드 실패:", url);
+                return null;
+            }
+        }
 
-            zip.file("mimetype", "application/epub+zip", {compression: "STORE"});
-            zip.folder("META-INF").file("container.xml", `<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
+        // --- EPUB 패키징 (이미지 내장 처리 추가) ---
+        downloadBtn.addEventListener('click', async () => {
+            if (!currentJsonData) { alert("JSON 파일을 업로드해주세요!"); return; }
 
-            const oebps = zip.folder("OEBPS");
-            
-            // [수정3 CSS] 유저 여백(1.5em) 및 점선(user-divider) 디자인 추가
-            oebps.folder("style").file("default.css", 
+            loadingScreen.style.display = 'flex';
+            downloadBtn.disabled = true;
+
+            try {
+                const zip = new JSZip();
+                const title = titleInput.value || "제목 없음";
+                const author = authorInput.value || "Unknown";
+                
+                // EPUB용 HTML 생성 (이미지 태그가 <img class="epub-image-target" src="URL"> 로 잡혀있음)
+                let bodyHtml = generateHTML(true);
+
+                const oebps = zip.folder("OEBPS");
+                const imagesFolder = oebps.folder("images");
+                let manifestItems = "";
+
+                // HTML 안에서 이미지 URL 모두 추출
+                const imgRegex = /<img[^>]+src="([^">]+)"[^>]*>/g;
+                let match;
+                let imageUrls =[];
+                while ((match = imgRegex.exec(bodyHtml)) !== null) { imageUrls.push(match[1]); }
+                imageUrls =[...new Set(imageUrls)]; // 중복 제거
+
+                // 각 이미지를 프록시로 다운받아서 압축파일(ZIP) 안에 저장
+                let imageMap = {};
+                for (let i = 0; i < imageUrls.length; i++) {
+                    const originalUrl = imageUrls[i];
+                    const buffer = await fetchImageAsArrayBuffer(originalUrl);
+                    
+                    if (buffer) {
+                        const ext = originalUrl.split('.').pop().split('?')[0].toLowerCase();
+                        const safeExt =['png','jpg','jpeg','gif','webp'].includes(ext) ? ext : 'png';
+                        const mimeType = safeExt === 'jpg' ? 'image/jpeg' : `image/${safeExt}`;
+                        const fileName = `img_${i}.${safeExt}`;
+
+                        // ZIP 안에 저장
+                        imagesFolder.file(fileName, buffer);
+                        
+                        // 목록(manifest)에 추가
+                        manifestItems += `<item id="img_${i}" href="images/${fileName}" media-type="${mimeType}"/>\n`;
+                        
+                        // HTML 본문의 URL을 내가 방금 저장한 로컬 경로로 바꿔치기
+                        imageMap[originalUrl] = `images/${fileName}`;
+                    }
+                }
+
+                // 본문 HTML 이미지 주소 바꾸기 (외부 URL -> 내부 파일)
+                for (const [original, local] of Object.entries(imageMap)) {
+                    bodyHtml = bodyHtml.split(original).join(local);
+                }
+
+                // 나머지 EPUB 파일 세팅
+                zip.file("mimetype", "application/epub+zip", {compression: "STORE"});
+                zip.folder("META-INF").file("container.xml", `<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
+
+                oebps.folder("style").file("default.css", 
 `@namespace epub "http://www.idpf.org/2007/ops";
 body { font-family: sans-serif; line-height: 1.8; }
 p { margin: 0.5em 0; text-align: justify; }
@@ -330,23 +369,32 @@ p { margin: 0.5em 0; text-align: justify; }
 .user-text { margin-top: 1.5em; margin-bottom: 1.5em; } 
 .user-divider { border: 0; border-top: 1px dashed #b2bec3; margin: 1.5em 0; }
 img { max-width: 100%; height: auto; display: block; margin: 10px auto; }`
-            );
+                );
 
-            oebps.file("chap_01.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">\n<head><title>${title}</title><link rel="stylesheet" type="text/css" href="style/default.css"/></head>\n<body>${bodyHtml}</body>\n</html>`);
-            oebps.file("nav.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n<head><title>Navigation</title></head>\n<body><nav epub:type="toc" id="toc"><h1>목차</h1><ol><li><a href="chap_01.xhtml">본문</a></li></ol></nav></body>\n</html>`);
+                oebps.file("chap_01.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">\n<head><title>${title}</title><link rel="stylesheet" type="text/css" href="style/default.css"/></head>\n<body>${bodyHtml}</body>\n</html>`);
+                oebps.file("nav.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n<head><title>Navigation</title></head>\n<body><nav epub:type="toc" id="toc"><h1>목차</h1><ol><li><a href="chap_01.xhtml">본문</a></li></ol></nav></body>\n</html>`);
 
-            let coverMeta = "", coverItem = "";
-            if (coverFileContent) {
-                const ext = coverFileName.split('.').pop().toLowerCase();
-                const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-                oebps.file("cover." + ext, coverFileContent);
-                coverMeta = `<meta name="cover" content="cover-image"/>`;
-                coverItem = `<item id="cover-image" href="cover.${ext}" media-type="${mimeType}"/>`;
+                let coverMeta = "", coverItem = "";
+                if (coverFileContent) {
+                    const ext = coverFileName.split('.').pop().toLowerCase();
+                    const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+                    oebps.file("cover." + ext, coverFileContent);
+                    coverMeta = `<meta name="cover" content="cover-image"/>`;
+                    coverItem = `<item id="cover-image" href="cover.${ext}" media-type="${mimeType}"/>`;
+                }
+
+                oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">\n    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>\n        <dc:identifier id="pub-id">urn:uuid:fox-epub-12345</dc:identifier>\n        ${coverMeta}\n    </metadata>\n    <manifest>\n        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n        <item id="chap1" href="chap_01.xhtml" media-type="application/xhtml+xml"/>\n        <item id="css" href="style/default.css" media-type="text/css"/>\n        ${manifestItems}\n        ${coverItem}\n    </manifest>\n    <spine><itemref idref="chap1"/></spine>\n</package>`);
+
+                // 압축 및 다운로드
+                const content = await zip.generateAsync({type:"blob", mimeType: "application/epub+zip"});
+                saveAs(content, title + ".epub");
+
+            } catch(e) {
+                alert("EPUB 생성 중 오류가 발생했습니다 ㅠㅠ\n" + e.message);
+            } finally {
+                loadingScreen.style.display = 'none';
+                downloadBtn.disabled = false;
             }
-
-            oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">\n    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>\n        <dc:identifier id="pub-id">urn:uuid:fox-epub-12345</dc:identifier>\n        ${coverMeta}\n    </metadata>\n    <manifest>\n        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n        <item id="chap1" href="chap_01.xhtml" media-type="application/xhtml+xml"/>\n        <item id="css" href="style/default.css" media-type="text/css"/>\n        ${coverItem}\n    </manifest>\n    <spine><itemref idref="chap1"/></spine>\n</package>`);
-
-            zip.generateAsync({type:"blob", mimeType: "application/epub+zip"}).then(function(content) { saveAs(content, title + ".epub"); });
         });
 
         window.onload = loadSettings;
