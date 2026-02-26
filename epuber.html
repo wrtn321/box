@@ -3,189 +3,384 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EPUB 뷰어</title>
-    <!-- E-Book 뷰어를 위한 외부 라이브러리(Epub.js) 로드 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+    <title>EPUB 스튜디오</title>
+    <!-- EPUB 생성을 위한 JSZip 라이브러리 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
     <style>
-        /* --- 페이지 전체 스타일 --- */
-        body {
-            font-family: 'Malgun Gothic', sans-serif;
-            background-color: #f0f0f0;
+        body { margin: 0; font-family: 'Malgun Gothic', sans-serif; display: flex; height: 100vh; background-color: #f5f6fa; }
+        
+        /* 왼쪽 미리보기 영역 */
+        #preview-pane {
+            flex: 1;
+            background-color: #e1e2e6;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            margin: 0;
-            height: 100vh;
         }
-
-        /* --- 상단 컨트롤 영역 --- */
-        .controls {
-            padding: 15px;
-            background-color: #fff;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            width: 100%;
-            text-align: center;
-            box-sizing: border-box;
-        }
-        
-        #upload-label {
-            display: inline-block;
-            padding: 8px 15px;
-            background-color: #007bff;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        
-        #book-upload {
-            display: none; /* 실제 파일 버튼은 숨김 */
-        }
-        
-        .filename {
-            margin-left: 15px;
-            font-style: italic;
-            color: #555;
-        }
-
-        /* --- 책이 표시될 뷰어 영역 --- */
-        #viewer-container {
-            width: 100%;
-            max-width: 800px; /* 책 최대 너비 */
-            flex-grow: 1;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            margin: 20px 0;
+        .pane-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; color: #2f3640; }
+        #preview-content {
+            flex: 1;
             background-color: white;
-        }
-        
-        #viewer {
-            height: 100%;
-        }
-
-        /* --- 하단 네비게이션 영역 --- */
-        .navigation {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            max-width: 800px;
-            padding: 10px 20px;
-            box-sizing: border-box;
-            background-color: #fff;
-            margin-bottom: 10px;
-        }
-        
-        .nav-button {
-            padding: 10px 20px;
-            border: none;
-            background-color: #333;
-            color: white;
-            font-size: 16px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        
-        .nav-button:hover {
-            background-color: #555;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            line-height: 1.8;
+            font-size: 15px;
         }
 
-        #location {
-            font-size: 14px;
-            color: #333;
+        /* 오른쪽 컨트롤 영역 */
+        #control-pane {
+            width: 450px;
+            background-color: white;
+            padding: 30px;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+            overflow-y: auto;
         }
+
+        .control-group { margin-bottom: 25px; }
+        .control-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #353b48; }
+        input[type="text"] { width: 100%; padding: 10px; border: 1px solid #dcdde1; border-radius: 4px; box-sizing: border-box; }
+        input[type="file"] { display: block; margin-top: 5px; }
+        
+        .btn {
+            display: block; width: 100%; padding: 15px; background-color: #fbc531;
+            color: #2f3640; text-align: center; font-weight: bold; font-size: 1.1rem;
+            border: none; border-radius: 6px; cursor: pointer; transition: 0.2s;
+        }
+        .btn:hover { background-color: #e1b12c; }
+        
+        /* 뷰어 내부 스타일 적용용 */
+        .user-text { margin-top: 0.5em; margin-bottom: 0.5em; }
+        .bold { font-weight: bold; }
+        .italic { font-style: italic; }
+        img { max-width: 100%; height: auto; display: block; margin: 10px auto; border-radius: 5px; }
     </style>
 </head>
 <body>
 
-    <!-- 1. 상단 컨트롤 영역 -->
-    <div class="controls">
-        <label for="book-upload" id="upload-label">🦊 EPUB 파일 선택</label>
-        <input type="file" id="book-upload" accept=".epub">
-        <span class="filename" id="filename-display">선택된 파일 없음</span>
+    <!-- 왼쪽: 실시간 미리보기 -->
+    <div id="preview-pane">
+        <div class="pane-title">📖 실시간 미리보기</div>
+        <div id="preview-content">
+            <p style="color: #7f8fa6; text-align: center; margin-top: 50%;">JSON 파일을 업로드하면 여기에 내용이 나타납니다.</p>
+        </div>
     </div>
 
-    <!-- 2. 책 내용이 나타날 영역 -->
-    <div id="viewer-container">
-        <div id="viewer"></div>
-    </div>
-    
-    <!-- 3. 페이지 넘김 버튼 영역 -->
-    <div class="navigation">
-        <button id="prev" class="nav-button">◀ 이전</button>
-        <div id="location"></div>
-        <button id="next" class="nav-button">다음 ▶</button>
+    <!-- 오른쪽: 설정 및 조작부 -->
+    <div id="control-pane">
+        <h2 style="margin-top: 0;">EPUB 설정</h2>
+        
+        <div class="control-group">
+            <label>1. JSON 파일 업로드</label>
+            <input type="file" id="json-file" accept=".json">
+        </div>
+
+        <div class="control-group">
+            <label>2. 표지 이미지 (선택)</label>
+            <input type="file" id="cover-file" accept="image/*">
+        </div>
+
+        <div class="control-group">
+            <label>3. 책 정보</label>
+            <input type="text" id="book-title" placeholder="책 제목" style="margin-bottom: 10px;">
+            <input type="text" id="book-author" placeholder="작가 이름">
+        </div>
+
+        <div class="control-group">
+            <label>4. HUD(상태창) 제거 패턴</label>
+            <p style="font-size: 0.85rem; color: #7f8fa6; margin-top: 0;">예: **[ * | * ]** (별표는 변하는 부분)</p>
+            <input type="text" id="hud-pattern" placeholder="여기에 입력하세요">
+        </div>
+
+        <div class="control-group">
+            <label>5. 이미지 설정</label>
+            <label style="font-weight: normal;">
+                <input type="checkbox" id="remove-img" checked>
+                '![이미지](주소)' 문구 삭제하기<br>
+                <span style="font-size: 0.8rem; color: #e1b12c;">(체크 해제 시 실제 이미지로 보이게 변환됩니다)</span>
+            </label>
+        </div>
+
+        <button class="btn" id="download-btn">✨ EPUB 다운로드 ✨</button>
+        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 15px;">※ 입력한 설정은 자동으로 임시저장됩니다.</p>
     </div>
 
     <script>
-        // --- E-Book 뷰어 로직 ---
-        
-        const fileInput = document.getElementById('book-upload');
-        const filenameDisplay = document.getElementById('filename-display');
-        let book = null;
-        let rendition = null;
+        // 전역 변수
+        let currentJsonData = null;
+        let coverFileContent = null;
+        let coverFileName = null;
 
-        // 파일이 선택되었을 때 실행될 함수
-        fileInput.addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file) {
-                // 기존에 열려있던 책이 있다면 제거
-                if (book) {
-                    book.destroy();
+        // UI 요소
+        const jsonInput = document.getElementById('json-file');
+        const coverInput = document.getElementById('cover-file');
+        const titleInput = document.getElementById('book-title');
+        const authorInput = document.getElementById('book-author');
+        const hudInput = document.getElementById('hud-pattern');
+        const removeImgCheck = document.getElementById('remove-img');
+        const previewContent = document.getElementById('preview-content');
+        const downloadBtn = document.getElementById('download-btn');
+
+        // --- 1. 임시저장 (로컬스토리지) 기능 ---
+        function saveSettings() {
+            const settings = {
+                title: titleInput.value,
+                author: authorInput.value,
+                hud: hudInput.value,
+                removeImg: removeImgCheck.checked
+            };
+            localStorage.setItem('epubStudioSettings', JSON.stringify(settings));
+            
+            if(currentJsonData) {
+                localStorage.setItem('epubStudioJson', JSON.stringify(currentJsonData));
+            }
+        }
+
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('epubStudioSettings');
+            if (savedSettings) {
+                const s = JSON.parse(savedSettings);
+                titleInput.value = s.title || '';
+                authorInput.value = s.author || '';
+                hudInput.value = s.hud || '';
+                removeImgCheck.checked = s.removeImg;
+            }
+            const savedJson = localStorage.getItem('epubStudioJson');
+            if (savedJson) {
+                currentJsonData = JSON.parse(savedJson);
+                updatePreview(); // 데이터가 있으면 즉시 렌더링
+            }
+        }
+
+        // --- 2. 입력값 변경 시 실시간 미리보기 업데이트 ---
+        [titleInput, authorInput, hudInput, removeImgCheck].forEach(el => {
+            el.addEventListener('input', () => {
+                saveSettings();
+                updatePreview();
+            });
+        });
+
+        // --- 3. 파일 업로드 처리 ---
+        jsonInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    currentJsonData = JSON.parse(event.target.result);
+                    // 자동 채우기
+                    if (!titleInput.value) titleInput.value = currentJsonData.title || '';
+                    if (!authorInput.value && currentJsonData.userPersona) {
+                        authorInput.value = currentJsonData.userPersona.name || '';
+                    }
+                    saveSettings();
+                    updatePreview();
+                } catch (err) {
+                    alert("JSON 파일을 읽는 데 실패했습니다. 올바른 파일인지 확인해주세요.");
                 }
-                
-                filenameDisplay.textContent = file.name; // 파일 이름 표시
-                
-                // Epub.js로 책 로드
-                book = ePub(file.path || URL.createObjectURL(file));
-
-                // 뷰어 영역에 책 렌더링
-                rendition = book.renderTo("viewer", {
-                    width: "100%",
-                    height: "100%",
-                    // spread: "auto" // 양면 보기 (필요시 주석 해제)
-                });
-
-                // 첫 페이지 표시
-                rendition.display();
-
-                // 페이지가 바뀔 때마다 위치 정보 업데이트
-                rendition.on("relocated", function(location) {
-                    const currentPage = location.start.location;
-                    const totalPages = book.locations.total;
-                    const percentage = Math.floor(book.locations.percentageFromCfi(location.start.cfi) * 100);
-                    document.getElementById('location').textContent = `${percentage}%`;
-                });
-            }
+            };
+            reader.readAsText(file);
         });
 
-        // 이전/다음 버튼 기능
-        const prevButton = document.getElementById('prev');
-        const nextButton = document.getElementById('next');
-
-        prevButton.addEventListener('click', function() {
-            if (rendition) {
-                rendition.prev();
-            }
+        coverInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            coverFileName = file.name;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                coverFileContent = event.target.result; // ArrayBuffer
+            };
+            reader.readAsArrayBuffer(file);
         });
 
-        nextButton.addEventListener('click', function() {
-            if (rendition) {
-                rendition.next();
-            }
-        });
+        // --- 4. 파이썬 로직을 JS로 완벽 이식한 렌더링 엔진 ---
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
 
-        // 키보드 화살표로 페이지 넘기기
-        document.addEventListener('keydown', function(event) {
-            if (rendition) {
-                if (event.key === 'ArrowLeft') {
-                    rendition.prev();
-                } else if (event.key === 'ArrowRight') {
-                    rendition.next();
+        function generateHTML() {
+            if (!currentJsonData) return "";
+
+            let html = `<h2>${titleInput.value || '제목 없음'}</h2>\n`;
+            const messages = currentJsonData.messages ||[];
+            
+            // HUD 정규식 준비
+            let hudRegex = null;
+            const hudPattern = hudInput.value.trim();
+            if (hudPattern) {
+                const parts = hudPattern.split('*');
+                const escapedParts = parts.map(escapeRegExp);
+                const patternStr = escapedParts.join('.*?');
+                hudRegex = new RegExp(patternStr + '\\n?', 'g');
+            }
+
+            messages.forEach(msg => {
+                let text = msg.content || '';
+                const role = msg.role;
+
+                // 0단계: 줄 끝 공백 제거
+                text = text.split('\n').map(line => line.trimEnd()).join('\n');
+
+                // 1단계: 이미지 처리
+                if (removeImgCheck.checked) {
+                    // 삭제 모드
+                    text = text.replace(/!\[.*?\]\(.*?\)\n?/g, '');
+                } else {
+                    // [NEW] 이미지 살리기 모드! 실제 <img> 태그로 변환
+                    // 마크다운: ![alt](url) -> HTML: <img src="url" alt="alt">
+                    text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">');
                 }
+
+                // 2단계: HUD 삭제
+                if (hudRegex) {
+                    text = text.replace(hudRegex, '');
+                }
+
+                // 3단계: 빈 줄 청소
+                text = text.trim();
+                text = text.replace(/\n{3,}/g, '\n\n'); // 3번 이상 -> 2번으로 압축
+
+                if (!text) return; // 내용 없으면 패스
+
+                // HTML 태그로 변환
+                text = text.replace(/\n/g, '<br/>');
+                
+                // 마크다운 볼드, 이탤릭
+                while (text.includes('**')) {
+                    text = text.replace('**', '<span class="bold">').replace('**', '</span>');
+                }
+                while (text.includes('*')) {
+                    text = text.replace('*', '<span class="italic">').replace('*', '</span>');
+                }
+
+                // 롤(Role)에 따른 문단 생성
+                if (role === 'assistant') {
+                    html += `<p>${text}</p>\n`;
+                } else if (role === 'user') {
+                    html += `<p class="user-text">${text}</p>\n`;
+                } else {
+                    html += `<p>${text}</p>\n`;
+                }
+            });
+
+            return html;
+        }
+
+        function updatePreview() {
+            if (!currentJsonData) return;
+            const htmlContent = generateHTML();
+            previewContent.innerHTML = htmlContent;
+        }
+
+        // --- 5. EPUB 생성 및 다운로드 (JSZip 사용) ---
+        downloadBtn.addEventListener('click', () => {
+            if (!currentJsonData) {
+                alert("먼저 JSON 파일을 업로드해주세요!");
+                return;
             }
+
+            const zip = new JSZip();
+            const title = titleInput.value || "제목 없음";
+            const author = authorInput.value || "Unknown";
+            const bodyHtml = generateHTML();
+
+            // 1. mimetype (압축 안 함)
+            zip.file("mimetype", "application/epub+zip", {compression: "STORE"});
+
+            // 2. META-INF/container.xml
+            zip.folder("META-INF").file("container.xml", 
+`<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+    <rootfiles>
+        <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+    </rootfiles>
+</container>`);
+
+            // 3. OEBPS 폴더 및 CSS
+            const oebps = zip.folder("OEBPS");
+            oebps.folder("style").file("default.css", 
+`@namespace epub "http://www.idpf.org/2007/ops";
+body { font-family: sans-serif; line-height: 1.8; }
+p { margin: 0.5em 0; text-align: justify; }
+.bold { font-weight: bold; }
+.italic { font-style: italic; }
+.user-text { margin-top: 0.5em; margin-bottom: 0.5em; }
+img { max-width: 100%; height: auto; display: block; margin: 10px auto; }`
+            );
+
+            // 본문 XHTML
+            oebps.file("chap_01.xhtml", 
+`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">
+<head>
+    <title>${title}</title>
+    <link rel="stylesheet" type="text/css" href="style/default.css"/>
+</head>
+<body>
+    ${bodyHtml}
+</body>
+</html>`);
+
+            // 네비게이션
+            oebps.file("nav.xhtml", 
+`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head><title>Navigation</title></head>
+<body>
+    <nav epub:type="toc" id="toc">
+        <h1>목차</h1>
+        <ol><li><a href="chap_01.xhtml">본문</a></li></ol>
+    </nav>
+</body>
+</html>`);
+
+            // 표지 처리
+            let coverMeta = "";
+            let coverItem = "";
+            if (coverFileContent) {
+                const ext = coverFileName.split('.').pop().toLowerCase();
+                const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+                oebps.file("cover." + ext, coverFileContent);
+                coverMeta = `<meta name="cover" content="cover-image"/>`;
+                coverItem = `<item id="cover-image" href="cover.${ext}" media-type="${mimeType}"/>`;
+            }
+
+            // OPF (책 메타데이터)
+            oebps.file("content.opf", 
+`<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">
+    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+        <dc:title>${title}</dc:title>
+        <dc:creator>${author}</dc:creator>
+        <dc:language>ko</dc:language>
+        <dc:identifier id="pub-id">urn:uuid:fox-epub-12345</dc:identifier>
+        ${coverMeta}
+    </metadata>
+    <manifest>
+        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+        <item id="chap1" href="chap_01.xhtml" media-type="application/xhtml+xml"/>
+        <item id="css" href="style/default.css" media-type="text/css"/>
+        ${coverItem}
+    </manifest>
+    <spine>
+        <itemref idref="chap1"/>
+    </spine>
+</package>`);
+
+            // 압축 및 다운로드
+            zip.generateAsync({type:"blob", mimeType: "application/epub+zip"}).then(function(content) {
+                saveAs(content, title + ".epub");
+            });
         });
+
+        // 페이지 로드 시 저장된 데이터 불러오기
+        window.onload = loadSettings;
 
     </script>
 </body>
