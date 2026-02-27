@@ -38,8 +38,8 @@
         .bold { font-weight: bold; }
         .italic { font-style: italic; }
         
-        /* [수정] 이미지 위쪽은 띄우고(1.8em), 아래쪽은 붙이기(1em) */
-        img { max-width: 100%; height: auto; display: block; margin: 1.8em auto 1em auto; border-radius: 5px; }
+        /* EPUB과 똑같이 보이도록 CSS 마진 최소화 (오직 엔터키로만 띄움) */
+        img { max-width: 100%; height: auto; display: block; margin: 5px auto; border-radius: 5px; }
         
         .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; color: white; font-size: 20px; font-weight: bold; flex-direction: column; text-align: center; line-height: 1.6; }
         .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #fbc531; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
@@ -122,7 +122,7 @@
         const coverInput = document.getElementById('cover-file');
         const titleInput = document.getElementById('book-title');
         const authorInput = document.getElementById('book-author');
-        const proxyInput = document.getElementById('my-proxy-url'); // 프록시 입력칸 추가
+        const proxyInput = document.getElementById('my-proxy-url'); 
         const removeImgCheck = document.getElementById('remove-img');
         const userDividerCheck = document.getElementById('user-divider');
         const previewContent = document.getElementById('preview-content');
@@ -163,7 +163,7 @@
             const settings = {
                 title: titleInput.value,
                 author: authorInput.value,
-                proxy: proxyInput.value, // 프록시 주소 저장
+                proxy: proxyInput.value, 
                 huds: huds,
                 removeImg: removeImgCheck.checked,
                 useDivider: userDividerCheck.checked
@@ -259,8 +259,13 @@
                 if (!text) return;
 
                 text = text.replace(/\n/g, '<br/>');
-                // 빈 줄 청소기 강화 (오직 찌꺼기만 없애고 디자인은 CSS에 맡김)
-                text = text.replace(/(?:<br\/>\s*)*(<img[^>]+>)(?:\s*<br\/>)*/g, '$1');
+                
+                // [핵심 수정] 위쪽은 띄우고(빈줄 1개), 아래쪽은 바짝 붙이기!
+                // offset === 0: 맨 처음에 이미지가 올 때는 위쪽 빈줄을 주지 않음
+                text = text.replace(/(?:<br\/>\s*)*(<img[^>]+>)(?:\s*<br\/>)*/g, function(match, imgTag, offset) {
+                    if (offset === 0) return imgTag;
+                    return '<br/><br/>' + imgTag;
+                });
 
                 while (text.includes('**')) { text = text.replace('**', '<span class="bold">').replace('**', '</span>'); }
                 while (text.includes('*')) { text = text.replace('*', '<span class="italic">').replace('*', '</span>'); }
@@ -283,16 +288,15 @@
             previewContent.innerHTML = generateHTML(false);
         }
 
-        // --- 개인 프록시 주소 지원! ---
+        // --- 안전한 1개씩 다운로드 (오류 방어막) ---
         async function fetchImageAsArrayBuffer(url) {
             // 1. 직접 시도
             try { let r = await fetch(url); if (r.ok) return await r.arrayBuffer(); } catch(e){}
             
-            // 2. [NEW] 개인 프록시 서버 시도! (있을 경우만)
+            // 2. [전용 프록시 시도!]
             const myProxy = proxyInput.value.trim();
             if (myProxy) {
                 try {
-                    // url 파라미터로 붙여서 보냅니다.
                     let customUrl = myProxy + (myProxy.includes('?') ? '&' : '?') + 'url=' + encodeURIComponent(url);
                     let r = await fetch(customUrl);
                     if (r.ok) return await r.arrayBuffer();
@@ -330,7 +334,7 @@
                 let match;
                 let imageUrls =[];
                 while ((match = imgRegex.exec(bodyHtml)) !== null) { imageUrls.push(match[1]); }
-                imageUrls =[...new Set(imageUrls)]; 
+                imageUrls = [...new Set(imageUrls)]; 
 
                 let imageMap = {};
                 let completedCount = 0; 
@@ -372,7 +376,7 @@ p { margin: 0.5em 0; text-align: justify; }
 .italic { font-style: italic; }
 .user-text { margin-top: 1.5em; margin-bottom: 1.5em; } 
 .user-divider { border: 0; border-top: 1px dashed #b2bec3; margin: 1.5em 0; }
-img { max-width: 100%; height: auto; display: block; margin: 1.8em auto 0.2em auto; }`
+img { max-width: 100%; height: auto; display: block; margin: 5px auto; }`
                 );
 
                 oebps.file("chap_01.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">\n<head><title>${title}</title><link rel="stylesheet" type="text/css" href="style/default.css"/></head>\n<body>${bodyHtml}</body>\n</html>`);
