@@ -294,7 +294,7 @@
                 
                 text = text.replace(/(?:<br\/>\s*)*(<img[^>]+>)(?:\s*<br\/>)*/g, function(match, imgTag, offset) {
                     if (offset === 0) return imgTag;
-                    return '<br/><br/>' + imgTag;
+                    return '<br/>' + imgTag;
                 });
 
                 while (text.includes('**')) { text = text.replace('**', '<span class="bold">').replace('**', '</span>'); }
