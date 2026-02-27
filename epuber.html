@@ -97,13 +97,7 @@
         </div>
 
         <div class="control-group">
-            <label>5. 나만의 무료 프록시 주소 (선택)</label>
-            <input type="text" id="my-proxy-url" placeholder="예: https://my-proxy.jerry.workers.dev">
-            <p style="font-size: 0.75rem; color: #7f8fa6; margin-top: 5px;">※ 413 에러나 엑스박스가 뜬다면 입력하세요.</p>
-        </div>
-
-        <div class="control-group">
-            <label>6. 옵션 설정</label>
+            <label>5. 옵션 설정</label>
             
             <label style="font-weight: normal; cursor: pointer; display: block; margin-bottom: 10px;">
                 <input type="checkbox" id="user-divider" checked>
@@ -140,7 +134,6 @@
         const coverPreviewImg = document.getElementById('cover-preview-img');
         const titleInput = document.getElementById('book-title');
         const authorInput = document.getElementById('book-author');
-        const proxyInput = document.getElementById('my-proxy-url'); 
         const removeImgCheck = document.getElementById('remove-img');
         const userDividerCheck = document.getElementById('user-divider');
         const previewContent = document.getElementById('preview-content');
@@ -180,7 +173,6 @@
         function saveSettings() {
             const huds = Array.from(document.querySelectorAll('.hud-input')).map(el => el.value).filter(v => v.trim() !== '');
             const settings = {
-                proxy: proxyInput.value,
                 huds: huds,
                 removeImg: removeImgCheck.checked,
                 useDivider: userDividerCheck.checked
@@ -192,7 +184,6 @@
             const savedSettings = localStorage.getItem('epubStudioSettings');
             if (savedSettings) {
                 const s = JSON.parse(savedSettings);
-                proxyInput.value = s.proxy || '';
                 removeImgCheck.checked = s.removeImg !== undefined ? s.removeImg : false;
                 userDividerCheck.checked = s.useDivider !== undefined ? s.useDivider : true;
 
@@ -208,8 +199,7 @@
             previewContent.innerHTML = '<p style="color: #7f8fa6; text-align: center; margin-top: 20vh;">JSON 파일을 업로드하면 여기에 내용이 나타납니다.</p>';
         }
         
-        // --- [수정된 부분] 이벤트 리스너 배열 오류 해결 ---
-        const watchInputs = [titleInput, authorInput, proxyInput, removeImgCheck, userDividerCheck];
+        const watchInputs =[titleInput, authorInput, removeImgCheck, userDividerCheck];
         watchInputs.forEach(el => {
             el.addEventListener('input', () => { saveSettings(); updatePreview(); });
         });
@@ -328,17 +318,7 @@
                 if (r.ok) return await r.arrayBuffer();
             } catch(e) { }
 
-            // 2순위: 5번에 입력한 추가 프록시가 있다면
-            const myProxy = proxyInput.value.trim();
-            if (myProxy) {
-                try {
-                    let customUrl = myProxy + (myProxy.includes('?') ? '&' : '?') + 'url=' + encodeURIComponent(url);
-                    let r = await fetch(customUrl);
-                    if (r.ok) return await r.arrayBuffer();
-                } catch(e) { }
-            }
-
-            // 3순위: 공용 프록시 백업
+            // 2순위: 공용 프록시 백업
             try { let r = await fetch('https://corsproxy.io/?' + encodeURIComponent(url)); if (r.ok) return await r.arrayBuffer(); } catch(e){}
             try { let r = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)); if (r.ok) return await r.arrayBuffer(); } catch(e){}
             
