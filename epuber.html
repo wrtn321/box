@@ -11,16 +11,19 @@
     <style>
         body { margin: 0; font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: row; height: 100vh; background-color: #f5f6fa; }
         
-        #control-pane { width: 450px; background-color: white; padding: 30px; box-shadow: 2px 0 10px rgba(0,0,0,0.05); overflow-y: auto; z-index: 10; }
-        #preview-pane { flex: 1; background-color: #e1e2e6; padding: 20px; display: flex; flex-direction: column; }
+        #control-pane { width: 450px; background-color: white; padding: 30px; box-shadow: 2px 0 10px rgba(0,0,0,0.05); overflow-y: auto; z-index: 10; flex-shrink: 0; }
+        #preview-pane { flex: 1; background-color: #e1e2e6; padding: 20px; display: flex; flex-direction: column; overflow-y: auto; }
         .pane-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; color: #2f3640; }
-        #preview-content { flex: 1; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow-y: auto; line-height: 1.8; font-size: 15px; }
+        #preview-content { flex: 1; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); line-height: 1.8; font-size: 15px; }
 
         .control-group { margin-bottom: 25px; }
         .control-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #353b48; }
         input[type="text"] { width: 100%; padding: 10px; border: 1px solid #dcdde1; border-radius: 4px; box-sizing: border-box; }
         input[type="file"] { display: block; margin-top: 5px; }
         
+        /* 표지 이미지 미리보기 썸네일 */
+        #cover-preview-img { max-width: 150px; max-height: 200px; display: none; margin-top: 10px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
         .hud-item { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-start; }
         .hud-input { flex: 1; padding: 10px; border: 1px solid #dcdde1; border-radius: 4px; resize: vertical; box-sizing: border-box; font-family: inherit; min-height: 45px; }
         .btn-small { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
@@ -33,18 +36,26 @@
         .btn:hover { background-color: #e1b12c; }
         .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
         
+        /* 미리보기 화면 CSS */
         .user-text { margin-top: 1.5em; margin-bottom: 1.5em; } 
         .user-divider { border: 0; border-top: 1px dashed #b2bec3; margin: 1.5em 0; }
         .bold { font-weight: bold; }
         .italic { font-style: italic; }
-        
-        /* EPUB과 똑같이 보이도록 CSS 마진 최소화 (오직 엔터키로만 띄움) */
-        img { max-width: 100%; height: auto; display: block; margin: 5px auto; border-radius: 5px; }
+        img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em auto 0.2em auto; border-radius: 5px; }
+        h2.preview-title { margin-bottom: 1.5em; }
         
         .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; color: white; font-size: 20px; font-weight: bold; flex-direction: column; text-align: center; line-height: 1.6; }
         .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #fbc531; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #progress-text { font-size: 28px; color: #fbc531; margin-top: 10px; font-weight: 900; }
+
+        /* 모바일 반응형 처리 */
+        @media (max-width: 768px) {
+            body { flex-direction: column; height: auto; }
+            #control-pane { width: 100%; box-shadow: none; border-bottom: 2px solid #dcdde1; padding: 20px; box-sizing: border-box; }
+            #preview-pane { padding: 10px; }
+            #preview-content { padding: 15px; }
+        }
     </style>
 </head>
 <body>
@@ -55,6 +66,7 @@
         <div id="progress-text">(0 / 0)</div>
     </div>
 
+    <!-- 왼쪽 (모바일에선 위쪽) -->
     <div id="control-pane">
         <h2 style="margin-top: 0;">EPUB 설정</h2>
         
@@ -66,6 +78,7 @@
         <div class="control-group">
             <label>2. 표지 이미지 (선택)</label>
             <input type="file" id="cover-file" accept="image/*">
+            <img id="cover-preview-img" src="" alt="표지 미리보기">
         </div>
 
         <div class="control-group">
@@ -84,19 +97,11 @@
         </div>
 
         <div class="control-group">
-            <label>5. 나만의 무료 프록시 주소 (선택)</label>
-            <input type="text" id="my-proxy-url" placeholder="예: https://my-proxy.jerry.workers.dev">
-            <p style="font-size: 0.75rem; color: #7f8fa6; margin-top: 5px;">※ 413 에러나 엑스박스가 뜬다면 입력하세요.</p>
-        </div>
-
-        <div class="control-group">
-            <label>6. 옵션 설정</label>
-            
+            <label>5. 옵션 설정</label>
             <label style="font-weight: normal; cursor: pointer; display: block; margin-bottom: 10px;">
                 <input type="checkbox" id="user-divider" checked>
                 유저 대사 위아래로 구분선(---) 넣기
             </label>
-            
             <label style="font-weight: normal; cursor: pointer; display: block;">
                 <input type="checkbox" id="remove-img">
                 '![이미지](주소)' 문구 완전 삭제
@@ -104,25 +109,32 @@
         </div>
 
         <button class="btn" id="download-btn">✨ EPUB 다운로드 ✨</button>
+        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 15px;">※ JSON 파일은 저장되지 않으며 설정만 임시저장됩니다.</p>
     </div>
 
+    <!-- 오른쪽 (모바일에선 아래쪽) -->
     <div id="preview-pane">
         <div class="pane-title">📖 실시간 미리보기</div>
         <div id="preview-content">
-            <p style="color: #7f8fa6; text-align: center; margin-top: 50%;">JSON 파일을 업로드하면 여기에 내용이 나타납니다.</p>
+            <p style="color: #7f8fa6; text-align: center; margin-top: 20vh;">JSON 파일을 업로드하면 여기에 내용이 나타납니다.</p>
         </div>
     </div>
 
     <script>
+        // ----------------------------------------------------
+        // [중요] 전용 프록시 URL 하드코딩
+        // ----------------------------------------------------
+        const MY_PROXY_URL = "https://proxy.wrtn321.workers.dev";
+        
         let currentJsonData = null;
         let coverFileContent = null;
         let coverFileName = null;
 
         const jsonInput = document.getElementById('json-file');
         const coverInput = document.getElementById('cover-file');
+        const coverPreviewImg = document.getElementById('cover-preview-img');
         const titleInput = document.getElementById('book-title');
         const authorInput = document.getElementById('book-author');
-        const proxyInput = document.getElementById('my-proxy-url'); 
         const removeImgCheck = document.getElementById('remove-img');
         const userDividerCheck = document.getElementById('user-divider');
         const previewContent = document.getElementById('preview-content');
@@ -158,27 +170,21 @@
             updatePreview();
         }
 
+        // --- 임시저장 (옵션만 저장, JSON/제목/작가는 무시) ---
         function saveSettings() {
             const huds = Array.from(document.querySelectorAll('.hud-input')).map(el => el.value).filter(v => v.trim() !== '');
             const settings = {
-                title: titleInput.value,
-                author: authorInput.value,
-                proxy: proxyInput.value, 
                 huds: huds,
                 removeImg: removeImgCheck.checked,
                 useDivider: userDividerCheck.checked
             };
             localStorage.setItem('epubStudioSettings', JSON.stringify(settings));
-            if(currentJsonData) localStorage.setItem('epubStudioJson', JSON.stringify(currentJsonData));
         }
 
         function loadSettings() {
             const savedSettings = localStorage.getItem('epubStudioSettings');
             if (savedSettings) {
                 const s = JSON.parse(savedSettings);
-                titleInput.value = s.title || '';
-                authorInput.value = s.author || '';
-                proxyInput.value = s.proxy || '';
                 removeImgCheck.checked = s.removeImg !== undefined ? s.removeImg : false;
                 userDividerCheck.checked = s.useDivider !== undefined ? s.useDivider : true;
 
@@ -186,11 +192,20 @@
                 if (s.huds && s.huds.length > 0) s.huds.forEach(val => addHudField(val));
                 else addHudField('');
             } else { addHudField(''); }
-
-            const savedJson = localStorage.getItem('epubStudioJson');
-            if (savedJson) { currentJsonData = JSON.parse(savedJson); updatePreview(); }
-        }[titleInput, authorInput, proxyInput, removeImgCheck, userDividerCheck].forEach(el => {
+            
+            // 새로고침 시 JSON 및 텍스트 데이터는 렌더링하지 않음 (초기화)
+            titleInput.value = '';
+            authorInput.value = '';
+            currentJsonData = null;
+            previewContent.innerHTML = '<p style="color: #7f8fa6; text-align: center; margin-top: 20vh;">JSON 파일을 업로드하면 여기에 내용이 나타납니다.</p>';
+        }
+        
+        [removeImgCheck, userDividerCheck].forEach(el => {
             el.addEventListener('input', () => { saveSettings(); updatePreview(); });
+        });
+        
+        // 제목, 작가 칸에 입력할 때도 미리보기에 반영되게 함[titleInput, authorInput].forEach(el => {
+            el.addEventListener('input', updatePreview);
         });
 
         jsonInput.addEventListener('change', (e) => {
@@ -203,17 +218,28 @@
                     currentJsonData = JSON.parse(event.target.result);
                     titleInput.value = currentJsonData.title || '제목 없음';
                     authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || 'Unknown';
-                    saveSettings();
                     updatePreview();
                 } catch (err) { alert("JSON 파일 오류!"); }
             };
             reader.readAsText(file);
         });
 
+        // 표지 썸네일 미리보기 로직
         coverInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if (!file) return;
+            if (!file) {
+                coverPreviewImg.style.display = 'none';
+                coverFileContent = null;
+                return;
+            }
+            
             coverFileName = file.name;
+            
+            // 썸네일 표시용
+            coverPreviewImg.src = URL.createObjectURL(file);
+            coverPreviewImg.style.display = 'block';
+
+            // EPUB 압축용
             const reader = new FileReader();
             reader.onload = function(event) { coverFileContent = event.target.result; };
             reader.readAsArrayBuffer(file);
@@ -223,7 +249,9 @@
 
         function generateHTML(isForEpub = false) {
             if (!currentJsonData) return "";
-            let html = `<h2>${titleInput.value || '제목 없음'}</h2>\n`;
+            
+            // 제목(h2) 클래스 추가
+            let html = `<h2 class="preview-title">${titleInput.value || '제목 없음'}</h2>\n`;
             const messages = currentJsonData.messages ||[];
             
             const hudPatterns = Array.from(document.querySelectorAll('.hud-input')).map(el => el.value.trim()).filter(v => v !== '');
@@ -245,9 +273,9 @@
                     text = text.replace(/!\[(.*?)\]\((.*?)\)\n?/g, '');
                 } else {
                     if (isForEpub) {
-                        text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img class="epub-image-target" src="$2" alt="$1" />');
+                        text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img class="content-img" src="$2" alt="$1" />');
                     } else {
-                        text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" />');
+                        text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img class="content-img" src="$2" alt="$1" />');
                     }
                 }
 
@@ -260,8 +288,6 @@
 
                 text = text.replace(/\n/g, '<br/>');
                 
-                // [핵심 수정] 위쪽은 띄우고(빈줄 1개), 아래쪽은 바짝 붙이기!
-                // offset === 0: 맨 처음에 이미지가 올 때는 위쪽 빈줄을 주지 않음
                 text = text.replace(/(?:<br\/>\s*)*(<img[^>]+>)(?:\s*<br\/>)*/g, function(match, imgTag, offset) {
                     if (offset === 0) return imgTag;
                     return '<br/><br/>' + imgTag;
@@ -288,28 +314,18 @@
             previewContent.innerHTML = generateHTML(false);
         }
 
-        // --- 안전한 1개씩 다운로드 (오류 방어막) ---
+        // --- 전용 프록시만 사용하여 다운로드 ---
         async function fetchImageAsArrayBuffer(url) {
-            // 1. 직접 시도
-            try { let r = await fetch(url); if (r.ok) return await r.arrayBuffer(); } catch(e){}
-            
-            // 2. [전용 프록시 시도!]
-            const myProxy = proxyInput.value.trim();
-            if (myProxy) {
-                try {
-                    let customUrl = myProxy + (myProxy.includes('?') ? '&' : '?') + 'url=' + encodeURIComponent(url);
-                    let r = await fetch(customUrl);
-                    if (r.ok) return await r.arrayBuffer();
-                } catch(e) { console.error("개인 프록시 실패:", e); }
+            try {
+                // 커스텀 프록시 URL 완성
+                let customUrl = MY_PROXY_URL + "?url=" + encodeURIComponent(url);
+                let r = await fetch(customUrl);
+                if (r.ok) return await r.arrayBuffer();
+                console.error("프록시 응답 실패:", r.status);
+            } catch(e) { 
+                console.error("프록시 연결 실패:", e); 
             }
-
-            // 3. 공용 프록시 A 시도
-            try { let r = await fetch('https://corsproxy.io/?' + encodeURIComponent(url)); if (r.ok) return await r.arrayBuffer(); } catch(e){}
-            
-            // 4. 공용 프록시 B 시도
-            try { let r = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)); if (r.ok) return await r.arrayBuffer(); } catch(e){}
-            
-            return null; 
+            return null; // 실패하면 포기 (엑스박스)
         }
 
         downloadBtn.addEventListener('click', async () => {
@@ -334,7 +350,7 @@
                 let match;
                 let imageUrls =[];
                 while ((match = imgRegex.exec(bodyHtml)) !== null) { imageUrls.push(match[1]); }
-                imageUrls = [...new Set(imageUrls)]; 
+                imageUrls =[...new Set(imageUrls)]; 
 
                 let imageMap = {};
                 let completedCount = 0; 
@@ -368,15 +384,17 @@
                 zip.file("mimetype", "application/epub+zip", {compression: "STORE"});
                 zip.folder("META-INF").file("container.xml", `<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
 
+                // EPUB용 CSS 작성 (h2 여백 추가)
                 oebps.folder("style").file("default.css", 
 `@namespace epub "http://www.idpf.org/2007/ops";
 body { font-family: sans-serif; line-height: 1.8; }
+h2.preview-title { margin-bottom: 1.5em; text-align: center; }
 p { margin: 0.5em 0; text-align: justify; }
 .bold { font-weight: bold; }
 .italic { font-style: italic; }
 .user-text { margin-top: 1.5em; margin-bottom: 1.5em; } 
 .user-divider { border: 0; border-top: 1px dashed #b2bec3; margin: 1.5em 0; }
-img { max-width: 100%; height: auto; display: block; margin: 5px auto; }`
+img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em auto 0.2em auto; }`
                 );
 
                 oebps.file("chap_01.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">\n<head><title>${title}</title><link rel="stylesheet" type="text/css" href="style/default.css"/></head>\n<body>${bodyHtml}</body>\n</html>`);
