@@ -42,7 +42,7 @@
         .bold { font-weight: bold; }
         .italic { font-style: italic; }
         img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em auto 0.2em auto; border-radius: 5px; }
-        h2.preview-title { margin-bottom: 1.5em; }
+        h2.preview-title { text-align: center; } /* 마진 빼고 가운데 정렬만 */
         
         .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; color: white; font-size: 20px; font-weight: bold; flex-direction: column; text-align: center; line-height: 1.6; }
         .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #fbc531; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
@@ -97,11 +97,19 @@
         </div>
 
         <div class="control-group">
-            <label>5. 옵션 설정</label>
+            <label>5. 나만의 무료 프록시 주소 (선택)</label>
+            <input type="text" id="my-proxy-url" placeholder="예: https://my-proxy.jerry.workers.dev">
+            <p style="font-size: 0.75rem; color: #7f8fa6; margin-top: 5px;">※ 413 에러나 엑스박스가 뜬다면 입력하세요.</p>
+        </div>
+
+        <div class="control-group">
+            <label>6. 옵션 설정</label>
+            
             <label style="font-weight: normal; cursor: pointer; display: block; margin-bottom: 10px;">
                 <input type="checkbox" id="user-divider" checked>
                 유저 대사 위아래로 구분선(---) 넣기
             </label>
+            
             <label style="font-weight: normal; cursor: pointer; display: block;">
                 <input type="checkbox" id="remove-img">
                 '![이미지](주소)' 문구 완전 삭제
@@ -109,7 +117,7 @@
         </div>
 
         <button class="btn" id="download-btn">✨ EPUB 다운로드 ✨</button>
-        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 15px;">※ JSON 파일은 저장되지 않으며 설정만 임시저장됩니다.</p>
+        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 15px;">※ 설정만 저장되며, JSON 파일은 저장되지 않습니다.</p>
     </div>
 
     <!-- 오른쪽 (모바일에선 아래쪽) -->
@@ -121,10 +129,7 @@
     </div>
 
     <script>
-        // ----------------------------------------------------
-        // [중요] 전용 프록시 URL 하드코딩
-        // ----------------------------------------------------
-        const MY_PROXY_URL = "https://proxy.wrtn321.workers.dev";
+        const MY_PROXY_URL = "https://proxy.wrtn321.workers.dev"; // 전용 프록시 (고정)
         
         let currentJsonData = null;
         let coverFileContent = null;
@@ -135,6 +140,7 @@
         const coverPreviewImg = document.getElementById('cover-preview-img');
         const titleInput = document.getElementById('book-title');
         const authorInput = document.getElementById('book-author');
+        const proxyInput = document.getElementById('my-proxy-url'); 
         const removeImgCheck = document.getElementById('remove-img');
         const userDividerCheck = document.getElementById('user-divider');
         const previewContent = document.getElementById('preview-content');
@@ -174,6 +180,7 @@
         function saveSettings() {
             const huds = Array.from(document.querySelectorAll('.hud-input')).map(el => el.value).filter(v => v.trim() !== '');
             const settings = {
+                proxy: proxyInput.value,
                 huds: huds,
                 removeImg: removeImgCheck.checked,
                 useDivider: userDividerCheck.checked
@@ -185,6 +192,7 @@
             const savedSettings = localStorage.getItem('epubStudioSettings');
             if (savedSettings) {
                 const s = JSON.parse(savedSettings);
+                proxyInput.value = s.proxy || '';
                 removeImgCheck.checked = s.removeImg !== undefined ? s.removeImg : false;
                 userDividerCheck.checked = s.useDivider !== undefined ? s.useDivider : true;
 
@@ -193,19 +201,17 @@
                 else addHudField('');
             } else { addHudField(''); }
             
-            // 새로고침 시 JSON 및 텍스트 데이터는 렌더링하지 않음 (초기화)
+            // 새로고침 시 JSON 및 텍스트 데이터 렌더링 초기화
             titleInput.value = '';
             authorInput.value = '';
             currentJsonData = null;
             previewContent.innerHTML = '<p style="color: #7f8fa6; text-align: center; margin-top: 20vh;">JSON 파일을 업로드하면 여기에 내용이 나타납니다.</p>';
         }
         
-        [removeImgCheck, userDividerCheck].forEach(el => {
+        // --- [수정된 부분] 이벤트 리스너 배열 오류 해결 ---
+        const watchInputs = [titleInput, authorInput, proxyInput, removeImgCheck, userDividerCheck];
+        watchInputs.forEach(el => {
             el.addEventListener('input', () => { saveSettings(); updatePreview(); });
-        });
-        
-        // 제목, 작가 칸에 입력할 때도 미리보기에 반영되게 함[titleInput, authorInput].forEach(el => {
-            el.addEventListener('input', updatePreview);
         });
 
         jsonInput.addEventListener('change', (e) => {
@@ -224,7 +230,7 @@
             reader.readAsText(file);
         });
 
-        // 표지 썸네일 미리보기 로직
+        // 표지 썸네일 미리보기
         coverInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) {
@@ -234,12 +240,9 @@
             }
             
             coverFileName = file.name;
-            
-            // 썸네일 표시용
             coverPreviewImg.src = URL.createObjectURL(file);
             coverPreviewImg.style.display = 'block';
 
-            // EPUB 압축용
             const reader = new FileReader();
             reader.onload = function(event) { coverFileContent = event.target.result; };
             reader.readAsArrayBuffer(file);
@@ -250,8 +253,9 @@
         function generateHTML(isForEpub = false) {
             if (!currentJsonData) return "";
             
-            // 제목(h2) 클래스 추가
-            let html = `<h2 class="preview-title">${titleInput.value || '제목 없음'}</h2>\n`;
+            // CSS 여백 대신 물리적인 <br/>을 박아넣음!
+            let html = `<h2 class="preview-title">${titleInput.value || '제목 없음'}</h2>\n<br/><br/>\n`;
+            
             const messages = currentJsonData.messages ||[];
             
             const hudPatterns = Array.from(document.querySelectorAll('.hud-input')).map(el => el.value.trim()).filter(v => v !== '');
@@ -314,18 +318,31 @@
             previewContent.innerHTML = generateHTML(false);
         }
 
-        // --- 전용 프록시만 사용하여 다운로드 ---
         async function fetchImageAsArrayBuffer(url) {
+            try { let r = await fetch(url); if (r.ok) return await r.arrayBuffer(); } catch(e){}
+            
+            // 1순위: 하드코딩 전용 프록시!
             try {
-                // 커스텀 프록시 URL 완성
                 let customUrl = MY_PROXY_URL + "?url=" + encodeURIComponent(url);
                 let r = await fetch(customUrl);
                 if (r.ok) return await r.arrayBuffer();
-                console.error("프록시 응답 실패:", r.status);
-            } catch(e) { 
-                console.error("프록시 연결 실패:", e); 
+            } catch(e) { }
+
+            // 2순위: 5번에 입력한 추가 프록시가 있다면
+            const myProxy = proxyInput.value.trim();
+            if (myProxy) {
+                try {
+                    let customUrl = myProxy + (myProxy.includes('?') ? '&' : '?') + 'url=' + encodeURIComponent(url);
+                    let r = await fetch(customUrl);
+                    if (r.ok) return await r.arrayBuffer();
+                } catch(e) { }
             }
-            return null; // 실패하면 포기 (엑스박스)
+
+            // 3순위: 공용 프록시 백업
+            try { let r = await fetch('https://corsproxy.io/?' + encodeURIComponent(url)); if (r.ok) return await r.arrayBuffer(); } catch(e){}
+            try { let r = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)); if (r.ok) return await r.arrayBuffer(); } catch(e){}
+            
+            return null; 
         }
 
         downloadBtn.addEventListener('click', async () => {
@@ -384,11 +401,10 @@
                 zip.file("mimetype", "application/epub+zip", {compression: "STORE"});
                 zip.folder("META-INF").file("container.xml", `<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
 
-                // EPUB용 CSS 작성 (h2 여백 추가)
                 oebps.folder("style").file("default.css", 
 `@namespace epub "http://www.idpf.org/2007/ops";
 body { font-family: sans-serif; line-height: 1.8; }
-h2.preview-title { margin-bottom: 1.5em; text-align: center; }
+h2.preview-title { text-align: center; } /* 마진은 지우고 텍스트만 중앙 정렬 */
 p { margin: 0.5em 0; text-align: justify; }
 .bold { font-weight: bold; }
 .italic { font-style: italic; }
