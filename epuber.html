@@ -41,9 +41,11 @@
 
         .btn { display: block; width: 100%; padding: 15px; background-color: #fbc531; color: #2f3640; text-align: center; font-weight: bold; font-size: 1.1rem; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; margin-top: 10px; }
         .btn:hover { background-color: #e1b12c; }
-        .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
-        .btn-json { background-color: #7bed9f; margin-top: 10px; font-size: 1rem; }
-        .btn-json:hover { background-color: #2ed573; }
+
+        /* [수정된 부분] 3가지 내보내기 버튼 CSS */
+        .export-container { display: flex; gap: 8px; margin-top: 10px; }
+        .btn-export { background-color: #7bed9f; font-size: 0.95rem; flex: 1; padding: 12px; margin: 0; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; color: #2f3640; }
+        .btn-export:hover { background-color: #2ed573; }
 
         .msg-block { position: relative; border-radius: 6px; padding: 10px; margin-bottom: 15px; border: 1px solid transparent; transition: 0.2s; }
         .msg-block:hover { border: 1px dashed #dcdde1; background-color: #fcfcfc; }
@@ -64,7 +66,9 @@
         .save-title-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; margin-right: 10px; }
         .save-actions { display: none; gap: 8px; }
         .save-item:hover .save-actions { display: flex; }
-        .icon-btn { background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0; opacity: 0.7; transition: 0.2s; }
+        
+        /* [수정된 부분] 아이콘 버튼 크기 0.9rem으로 조정 */
+        .icon-btn { background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 0; opacity: 0.7; transition: 0.2s; }
         .icon-btn:hover { opacity: 1; transform: scale(1.15); }
 
         .user-text { margin-top: 1.5em; margin-bottom: 1.5em; } 
@@ -101,7 +105,11 @@
 
     <div id="control-pane">
         <h2 style="margin-top: 0;">EPUB 설정</h2>
-        <div class="control-group"><label>1. JSON 파일 업로드</label><input type="file" id="json-file" accept=".json"></div>
+        <div class="control-group">
+            <!--[수정된 부분] 확장자 accept 다중 지원 -->
+            <label>1. 데이터 불러오기 (JSON, TXT, HTML)</label>
+            <input type="file" id="json-file" accept=".json,.txt,.html">
+        </div>
         <div class="control-group"><label>2. 표지 이미지 (선택)</label><input type="file" id="cover-file" accept="image/*"><img id="cover-preview-img" src="" alt="표지 미리보기"></div>
         <div class="control-group"><label>3. 책 정보</label><input type="text" id="book-title" placeholder="책 제목" style="margin-bottom: 10px;"><input type="text" id="book-author" placeholder="작가 이름"></div>
         <div class="control-group">
@@ -114,35 +122,37 @@
             <label style="font-weight: normal; cursor: pointer; display: block; margin-bottom: 10px;"><input type="checkbox" id="user-divider" checked> 유저 대사 위아래로 구분선(---) 넣기</label>
             <label style="font-weight: normal; cursor: pointer; display: block;"><input type="checkbox" id="remove-img"> '![이미지](주소)' 문구 완전 삭제</label>
         </div>
+        
         <button class="btn" id="download-btn">✨ EPUB 다운로드 ✨</button>
-        <button class="btn btn-json" id="download-json-btn">💾 수정된 JSON 파일 보존하기</button>
-        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 15px;">※ 설정만 자동 저장되며, JSON은 별도로 다운받아야 합니다.</p>
+        
+        <!-- [수정된 부분] 3가지 포맷 내보내기 버튼 그룹 -->
+        <p style="font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; margin-top: 15px; color:#2f3640;">💾 수정된 데이터 원본 보존하기</p>
+        <div class="export-container">
+            <button class="btn-export" id="download-json-btn">JSON</button>
+            <button class="btn-export" id="download-txt-btn">TXT</button>
+            <button class="btn-export" id="download-html-btn">HTML</button>
+        </div>
+        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 10px;">※ 설정만 자동 저장되며, 대사 데이터는 별도로 다운받아야 합니다.</p>
     </div>
 
     <div id="preview-pane">
         <div class="pane-title-container">
             <div class="pane-title">📖 실시간 미리보기 (수정/삭제 가능)</div>
-            <div>
-                <button class="btn-small btn-edit" id="temp-load-btn" style="background-color: #8e44ad; margin-right: 5px;">불러오기</button>
-                <button class="btn-small btn-edit" id="temp-save-btn" style="margin-right: 15px;">임시저장</button>
-                <div class="dropdown-container">
-                    <button class="btn-toggle" id="save-menu-toggle" title="저장소 메뉴">⋮</button>
-                    <div id="save-dropdown" class="dropdown-menu">
-                        <div class="dropdown-header" id="btn-save-new">💾 저장소에 새로 만들기</div>
-                        <div id="save-list"></div>
-                    </div>
+            <!-- [수정된 부분] 중복 버튼을 모두 날리고 드롭다운만 깔끔하게 유지 -->
+            <div class="dropdown-container">
+                <button class="btn-toggle" id="save-menu-toggle" title="저장소 메뉴">⋮</button>
+                <div id="save-dropdown" class="dropdown-menu">
+                    <div class="dropdown-header" id="btn-save-new">💾 저장소에 새로 만들기</div>
+                    <div id="save-list"></div>
                 </div>
             </div>
         </div>
         <div id="preview-content">
-            <p style="color: #7f8fa6; text-align: center; margin-top: 20vh;">JSON 파일을 업로드하거나 저장된 데이터를 불러오세요.</p>
+            <p style="color: #7f8fa6; text-align: center; margin-top: 20vh;">파일(JSON, TXT, HTML)을 업로드하거나<br>우측 상단 [⋮] 메뉴에서 저장된 데이터를 불러오세요.</p>
         </div>
     </div>
 
     <script>
-        // ==========================================
-        // [수정된 부분 1] 무제한 용량을 위한 순수 IndexedDB 래퍼(Wrapper)
-        // ==========================================
         const DB_NAME = 'EpubStudioDB';
         const DB_VERSION = 1;
         let idb;
@@ -152,12 +162,7 @@
                 const request = indexedDB.open(DB_NAME, DB_VERSION);
                 request.onupgradeneeded = (e) => {
                     const db = e.target.result;
-                    if (!db.objectStoreNames.contains('saves')) {
-                        db.createObjectStore('saves', { keyPath: 'id' });
-                    }
-                    if (!db.objectStoreNames.contains('temp')) {
-                        db.createObjectStore('temp', { keyPath: 'id' });
-                    }
+                    if (!db.objectStoreNames.contains('saves')) db.createObjectStore('saves', { keyPath: 'id' });
                 };
                 request.onsuccess = (e) => { idb = e.target.result; resolve(); };
                 request.onerror = (e) => reject(e.target.error);
@@ -199,7 +204,6 @@
                 req.onerror = () => reject(req.error);
             });
         };
-        // ==========================================
 
         const MY_PROXY_URL = "https://proxy.wrtn321.workers.dev";
         
@@ -216,22 +220,22 @@
         const removeImgCheck = document.getElementById('remove-img');
         const userDividerCheck = document.getElementById('user-divider');
         const previewContent = document.getElementById('preview-content');
+        
         const downloadBtn = document.getElementById('download-btn');
-        const downloadJsonBtn = document.getElementById('download-json-btn');
+        const btnJson = document.getElementById('download-json-btn');
+        const btnTxt = document.getElementById('download-txt-btn');
+        const btnHtml = document.getElementById('download-html-btn');
+        
         const addHudBtn = document.getElementById('add-hud-btn');
         const hudContainer = document.getElementById('hud-container');
         const loadingScreen = document.getElementById('loading-screen');
         const progressText = document.getElementById('progress-text');
-        
-        const tempSaveBtn = document.getElementById('temp-save-btn');
-        const tempLoadBtn = document.getElementById('temp-load-btn');
         
         const dropdownToggle = document.getElementById('save-menu-toggle');
         const dropdownMenu = document.getElementById('save-dropdown');
         const saveNewBtn = document.getElementById('btn-save-new');
         const saveListContainer = document.getElementById('save-list');
 
-        // 옵션들은 용량이 매우 작으므로 localStorage 유지 (로딩 속도 이점)
         function saveSettings() {
             const huds = Array.from(document.querySelectorAll('.hud-item')).map(item => ({
                 value: item.querySelector('.hud-input').value,
@@ -265,7 +269,6 @@
             titleInput.value = '';
             authorInput.value = '';
             currentJsonData = null;
-            previewContent.innerHTML = '<p style="color: #7f8fa6; text-align: center; margin-top: 20vh;">JSON 파일을 업로드하거나 저장된 데이터를 불러오세요.</p>';
         }
 
         function addHudField(value = '', isChecked = true) {
@@ -311,18 +314,70 @@
             }
         });
 
+        // ==========================================
+        // [수정된 부분] JSON, TXT, HTML 입력을 처리하는 통합 파서
+        // ==========================================
         jsonInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
+            const ext = file.name.split('.').pop().toLowerCase();
             const reader = new FileReader();
+
             reader.onload = function(event) {
+                const text = event.target.result;
                 try {
-                    currentJsonData = JSON.parse(event.target.result);
+                    if (ext === 'json') {
+                        currentJsonData = JSON.parse(text);
+                    } else if (ext === 'html') {
+                        // 1순위: 내보낸 HTML 내부에 숨겨진 JSON 데이터 복구
+                        const match = text.match(/<!--EPUB_STUDIO_DATA\n([\s\S]*?)\n-->/);
+                        if (match) {
+                            currentJsonData = JSON.parse(match[1]);
+                        } else {
+                            // 일반 HTML 문서인 경우 단순 텍스트 추출
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(text, 'text/html');
+                            currentJsonData = {
+                                title: doc.title || "HTML 문서",
+                                messages:[{ role: "assistant", content: doc.body.innerText.trim() }]
+                            };
+                        }
+                    } else if (ext === 'txt') {
+                        let messages =[];
+                        let title = file.name.replace('.txt', '');
+                        let author = "Unknown";
+                        
+                        // 이 스튜디오에서 내보낸 TXT 형식([User], [Assistant] 태그 존재) 파싱
+                        if (text.includes('[User]') || text.includes('[Assistant]')) {
+                            const titleMatch = text.match(/^제목:\s*(.*)/m);
+                            if(titleMatch) title = titleMatch[1].trim();
+                            const authorMatch = text.match(/^작가:\s*(.*)/m);
+                            if(authorMatch) author = authorMatch[1].trim();
+
+                            const blocks = text.split(/(?=\[(?:User|Assistant)\])/);
+                            blocks.forEach(block => {
+                                const isUser = block.startsWith('[User]');
+                                const isAssistant = block.startsWith('[Assistant]');
+                                if(isUser || isAssistant) {
+                                    let content = block.replace(/^\[(?:User|Assistant)\]\n/, '').trim();
+                                    if(content) messages.push({ role: isUser ? 'user' : 'assistant', content: content });
+                                }
+                            });
+                            currentJsonData = { title, userPersona: { name: author }, messages };
+                        } else {
+                            // 알 수 없는 일반 TXT 파일인 경우 하나로 묶음
+                            currentJsonData = {
+                                title: title,
+                                messages: [{ role: "assistant", content: text.trim() }]
+                            };
+                        }
+                    }
+                    
                     titleInput.value = currentJsonData.title || '제목 없음';
                     authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || 'Unknown';
                     updatePreview();
-                } catch (err) { alert("JSON 파일 오류!"); }
+                } catch (err) { alert("파일을 읽는 중 오류가 발생했습니다!"); }
             };
             reader.readAsText(file);
         });
@@ -345,8 +400,6 @@
             document.querySelectorAll('#control-pane input, #control-pane button, .hud-input, .hud-checkbox').forEach(el => el.disabled = disabled);
             document.querySelectorAll('.msg-controls button').forEach(btn => btn.disabled = disabled);
             dropdownToggle.disabled = disabled;
-            tempSaveBtn.disabled = disabled;
-            tempLoadBtn.disabled = disabled;
         }
 
         function updatePreview() {
@@ -469,30 +522,6 @@
 
         window.cancelEdit = function() { editingMessageIndex = null; toggleUIControls(false); updatePreview(); };
 
-        // ==========================================
-        // [수정된 부분 2] IndexedDB를 활용한 임시저장/불러오기 기능 연결
-        // ==========================================
-        tempSaveBtn.addEventListener('click', async () => {
-            if (!currentJsonData) return alert("저장할 데이터가 없습니다. 먼저 JSON 파일을 업로드하세요.");
-            try {
-                await dbPut('temp', { id: 'quickSave', data: currentJsonData });
-                alert("✅ 현재까지 수정한 내용이 데이터베이스(IndexedDB)에 안전하게 임시저장되었습니다!");
-            } catch(e) { alert("임시저장 실패!"); }
-        });
-
-        tempLoadBtn.addEventListener('click', async () => {
-            try {
-                const record = await dbGet('temp', 'quickSave');
-                if (!record) return alert("임시저장된 데이터가 없습니다.");
-                if (confirm("임시저장된 데이터를 불러오시겠습니까? (현재 화면의 내용은 덮어씌워집니다.)")) {
-                    currentJsonData = record.data;
-                    titleInput.value = currentJsonData.title || '';
-                    authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || '';
-                    updatePreview();
-                }
-            } catch(e) { alert("불러오기 실패!"); }
-        });
-
         async function renderSaveList() {
             saveListContainer.innerHTML = '';
             try {
@@ -501,7 +530,6 @@
                     saveListContainer.innerHTML = '<div style="padding:15px; text-align:center; color:#999; font-size:0.85rem;">저장된 항목이 없습니다.</div>';
                     return;
                 }
-                // 최신순 정렬 (ID가 타임스탬프)
                 saves.sort((a,b) => b.id - a.id);
                 saves.forEach((item) => {
                     const div = document.createElement('div');
@@ -578,17 +606,77 @@
                 } catch(e) { alert("삭제 실패!"); }
             }
         };
+
         // ==========================================
+        //[수정된 부분] 데이터 내보내기 로직 (JSON, TXT, HTML)
+        // ==========================================
+        function checkExportReady() {
+            if (!currentJsonData) { alert("다운로드할 데이터가 없습니다!"); return false; }
+            if (editingMessageIndex !== null) { alert("대사 수정(저장/취소)을 완료한 뒤 다운로드해주세요."); return false; }
+            return true;
+        }
 
-        downloadJsonBtn.addEventListener('click', () => {
-            if (!currentJsonData) return alert("다운로드할 데이터가 없습니다!");
-            if (editingMessageIndex !== null) return alert("대사 수정(저장/취소)을 완료한 뒤 다운로드해주세요.");
-
+        // 1. JSON 내보내기
+        btnJson.addEventListener('click', () => {
+            if (!checkExportReady()) return;
             const jsonString = JSON.stringify(currentJsonData, null, 2);
             const blob = new Blob([jsonString], { type: "application/json" });
-            const fileName = (titleInput.value || "수정본") + "_수정됨.json";
-            saveAs(blob, fileName);
+            saveAs(blob, (titleInput.value || "수정본") + "_수정됨.json");
         });
+
+        // 2. TXT 내보내기
+        btnTxt.addEventListener('click', () => {
+            if (!checkExportReady()) return;
+            let txtString = `제목: ${titleInput.value || '제목 없음'}\n작가: ${authorInput.value || 'Unknown'}\n\n`;
+            
+            const messages = currentJsonData.messages ||[];
+            messages.forEach(msg => {
+                const roleName = msg.role === 'user' ? 'User' : 'Assistant';
+                txtString += `[${roleName}]\n${msg.content}\n\n`;
+            });
+
+            const blob = new Blob([txtString], { type: "text/plain;charset=utf-8" });
+            saveAs(blob, (titleInput.value || "수정본") + "_수정됨.txt");
+        });
+
+        // 3. HTML 내보내기 (데이터 임베딩 포함)
+        btnHtml.addEventListener('click', () => {
+            if (!checkExportReady()) return;
+            let htmlContent = `<!DOCTYPE html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n<title>${titleInput.value || '제목 없음'}</title>\n`;
+            htmlContent += `<style>
+                body { font-family: 'Malgun Gothic', sans-serif; line-height: 1.8; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f5f6fa; color: #2f3640; }
+                .msg { padding: 20px; border-radius: 8px; margin-bottom: 20px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+                .user { border-left: 5px solid #fbc531; }
+                .assistant { border-left: 5px solid #3498db; }
+                .bold { font-weight: bold; }
+                .italic { font-style: italic; }
+                h1, h2, h3, h4, h5, h6 { margin: 0.5em 0; line-height: 1.4; }
+                img { max-width: 100%; height: auto; display: block; margin: 15px 0; border-radius: 6px; }
+            </style>\n</head>\n<body>\n`;
+            htmlContent += `<h1 style="text-align:center;">${titleInput.value || '제목 없음'}</h1>\n`;
+            htmlContent += `<h3 style="text-align:center; color:#7f8fa6; margin-bottom:30px;">${authorInput.value || 'Unknown'}</h3>\n`;
+
+            const messages = currentJsonData.messages ||[];
+            messages.forEach(msg => {
+                let text = msg.content || '';
+                text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                text = text.replace(/^(#{1,6})\s+(.*)$/gm, (m, h, c) => `<h${h.length}>${c}</h${h.length}>`);
+                text = text.replace(/\*\*([^\n]+?)\*\*/g, '<span class="bold">$1</span>');
+                text = text.replace(/\*([^\n]+?)\*/g, '<span class="italic">$1</span>');
+                text = text.replace(/\n/g, '<br/>');
+                
+                const cls = msg.role === 'user' ? 'user' : 'assistant';
+                htmlContent += `<div class="msg ${cls}"><p>${text}</p></div>\n`;
+            });
+            
+            // 추후 다시 스튜디오에 업로드 시 완벽하게 복구되도록 원본 JSON을 주석으로 몰래 삽입합니다.
+            htmlContent += `\n<!--EPUB_STUDIO_DATA\n${JSON.stringify(currentJsonData)}\n-->\n`;
+            htmlContent += `</body>\n</html>`;
+
+            const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+            saveAs(blob, (titleInput.value || "수정본") + "_수정됨.html");
+        });
+        // ==========================================
 
         async function fetchImageAsArrayBuffer(url) {
             try { let r = await fetch(url); if (r.ok) return await r.arrayBuffer(); } catch(e){}
@@ -599,7 +687,7 @@
         }
 
         downloadBtn.addEventListener('click', async () => {
-            if (!currentJsonData) return alert("JSON 파일을 업로드해주세요!");
+            if (!currentJsonData) return alert("데이터를 먼저 업로드해주세요!");
             if (editingMessageIndex !== null) return alert("현재 수정 중인 대사가 있습니다. '저장' 또는 '취소'를 누른 뒤 다운로드해주세요.");
 
             loadingScreen.style.display = 'flex';
@@ -665,11 +753,8 @@
                     bodyHtml = bodyHtml.split(original).join(local);
                 }
 
-                // ==========================================
-                // [수정된 부분 3] UUID 랜덤 생성 로직 패치 적용
-                // ==========================================
-                const uniqueId = crypto.randomUUID ? crypto.randomUUID() : 'fox-epub-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
-                // ==========================================
+                // [수정된 부분] UUID를 wrtn-epub- 로 변경
+                const uniqueId = crypto.randomUUID ? crypto.randomUUID() : 'wrtn-epub-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
 
                 zip.file("mimetype", "application/epub+zip", {compression: "STORE"});
                 zip.folder("META-INF").file("container.xml", `<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
@@ -699,7 +784,6 @@ img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em a
                     coverItem = `<item id="cover-image" href="cover.${ext}" media-type="${mimeType}"/>`;
                 }
 
-                // UUID를 content.opf 에 동적 반영
                 oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">\n    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>\n        <dc:identifier id="pub-id">urn:uuid:${uniqueId}</dc:identifier>\n        ${coverMeta}\n    </metadata>\n    <manifest>\n        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n        <item id="chap1" href="chap_01.xhtml" media-type="application/xhtml+xml"/>\n        <item id="css" href="style/default.css" media-type="text/css"/>\n        ${manifestItems}\n        ${coverItem}\n    </manifest>\n    <spine><itemref idref="chap1"/></spine>\n</package>`);
 
                 const content = await zip.generateAsync({type:"blob", mimeType: "application/epub+zip"});
@@ -713,7 +797,6 @@ img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em a
             }
         });
 
-        // 시작 시 데이터베이스 연동 후 로컬 설정 로드
         window.onload = async () => {
             try { await initDB(); } 
             catch(e) { console.warn("데이터베이스(IndexedDB) 초기화 실패: 저장 기능이 제한될 수 있습니다."); }
