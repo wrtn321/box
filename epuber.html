@@ -42,7 +42,6 @@
         .btn { display: block; width: 100%; padding: 15px; background-color: #fbc531; color: #2f3640; text-align: center; font-weight: bold; font-size: 1.1rem; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; margin-top: 10px; }
         .btn:hover { background-color: #e1b12c; }
 
-        /* [수정된 부분] 3가지 내보내기 버튼 CSS */
         .export-container { display: flex; gap: 8px; margin-top: 10px; }
         .btn-export { background-color: #7bed9f; font-size: 0.95rem; flex: 1; padding: 12px; margin: 0; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; color: #2f3640; }
         .btn-export:hover { background-color: #2ed573; }
@@ -67,7 +66,6 @@
         .save-actions { display: none; gap: 8px; }
         .save-item:hover .save-actions { display: flex; }
         
-        /* [수정된 부분] 아이콘 버튼 크기 0.9rem으로 조정 */
         .icon-btn { background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 0; opacity: 0.7; transition: 0.2s; }
         .icon-btn:hover { opacity: 1; transform: scale(1.15); }
 
@@ -106,9 +104,9 @@
     <div id="control-pane">
         <h2 style="margin-top: 0;">EPUB 설정</h2>
         <div class="control-group">
-            <!--[수정된 부분] 확장자 accept 다중 지원 -->
-            <label>1. 데이터 불러오기 (JSON, TXT, HTML)</label>
-            <input type="file" id="json-file" accept=".json,.txt,.html">
+            <label>1. 데이터 불러오기 (JSON, TXT)</label>
+            <!-- [수정됨] html 제거 -->
+            <input type="file" id="json-file" accept=".json,.txt">
         </div>
         <div class="control-group"><label>2. 표지 이미지 (선택)</label><input type="file" id="cover-file" accept="image/*"><img id="cover-preview-img" src="" alt="표지 미리보기"></div>
         <div class="control-group"><label>3. 책 정보</label><input type="text" id="book-title" placeholder="책 제목" style="margin-bottom: 10px;"><input type="text" id="book-author" placeholder="작가 이름"></div>
@@ -125,12 +123,11 @@
         
         <button class="btn" id="download-btn">✨ EPUB 다운로드 ✨</button>
         
-        <!-- [수정된 부분] 3가지 포맷 내보내기 버튼 그룹 -->
         <p style="font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; margin-top: 15px; color:#2f3640;">💾 수정된 데이터 원본 보존하기</p>
         <div class="export-container">
             <button class="btn-export" id="download-json-btn">JSON</button>
             <button class="btn-export" id="download-txt-btn">TXT</button>
-            <button class="btn-export" id="download-html-btn">HTML</button>
+            <!-- [수정됨] HTML 버튼 제거됨 -->
         </div>
         <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 10px;">※ 설정만 자동 저장되며, 대사 데이터는 별도로 다운받아야 합니다.</p>
     </div>
@@ -138,7 +135,6 @@
     <div id="preview-pane">
         <div class="pane-title-container">
             <div class="pane-title">📖 실시간 미리보기 (수정/삭제 가능)</div>
-            <!-- [수정된 부분] 중복 버튼을 모두 날리고 드롭다운만 깔끔하게 유지 -->
             <div class="dropdown-container">
                 <button class="btn-toggle" id="save-menu-toggle" title="저장소 메뉴">⋮</button>
                 <div id="save-dropdown" class="dropdown-menu">
@@ -148,7 +144,8 @@
             </div>
         </div>
         <div id="preview-content">
-            <p style="color: #7f8fa6; text-align: center; margin-top: 20vh;">파일(JSON, TXT, HTML)을 업로드하거나<br>우측 상단 [⋮] 메뉴에서 저장된 데이터를 불러오세요.</p>
+            <!-- [수정됨] html 문구 제거 -->
+            <p style="color: #7f8fa6; text-align: center; margin-top: 20vh;">파일(JSON, TXT)을 업로드하거나<br>우측 상단 [⋮] 메뉴에서 저장된 데이터를 불러오세요.</p>
         </div>
     </div>
 
@@ -224,7 +221,6 @@
         const downloadBtn = document.getElementById('download-btn');
         const btnJson = document.getElementById('download-json-btn');
         const btnTxt = document.getElementById('download-txt-btn');
-        const btnHtml = document.getElementById('download-html-btn');
         
         const addHudBtn = document.getElementById('add-hud-btn');
         const hudContainer = document.getElementById('hud-container');
@@ -314,9 +310,7 @@
             }
         });
 
-        // ==========================================
-        // [수정된 부분] JSON, TXT, HTML 입력을 처리하는 통합 파서
-        // ==========================================
+        // [수정됨] JSON, TXT만 처리하도록 간소화
         jsonInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -329,26 +323,11 @@
                 try {
                     if (ext === 'json') {
                         currentJsonData = JSON.parse(text);
-                    } else if (ext === 'html') {
-                        // 1순위: 내보낸 HTML 내부에 숨겨진 JSON 데이터 복구
-                        const match = text.match(/<!--EPUB_STUDIO_DATA\n([\s\S]*?)\n-->/);
-                        if (match) {
-                            currentJsonData = JSON.parse(match[1]);
-                        } else {
-                            // 일반 HTML 문서인 경우 단순 텍스트 추출
-                            const parser = new DOMParser();
-                            const doc = parser.parseFromString(text, 'text/html');
-                            currentJsonData = {
-                                title: doc.title || "HTML 문서",
-                                messages:[{ role: "assistant", content: doc.body.innerText.trim() }]
-                            };
-                        }
                     } else if (ext === 'txt') {
                         let messages =[];
                         let title = file.name.replace('.txt', '');
                         let author = "Unknown";
                         
-                        // 이 스튜디오에서 내보낸 TXT 형식([User], [Assistant] 태그 존재) 파싱
                         if (text.includes('[User]') || text.includes('[Assistant]')) {
                             const titleMatch = text.match(/^제목:\s*(.*)/m);
                             if(titleMatch) title = titleMatch[1].trim();
@@ -366,10 +345,9 @@
                             });
                             currentJsonData = { title, userPersona: { name: author }, messages };
                         } else {
-                            // 알 수 없는 일반 TXT 파일인 경우 하나로 묶음
                             currentJsonData = {
                                 title: title,
-                                messages: [{ role: "assistant", content: text.trim() }]
+                                messages:[{ role: "assistant", content: text.trim() }]
                             };
                         }
                     }
@@ -607,16 +585,12 @@
             }
         };
 
-        // ==========================================
-        //[수정된 부분] 데이터 내보내기 로직 (JSON, TXT, HTML)
-        // ==========================================
         function checkExportReady() {
             if (!currentJsonData) { alert("다운로드할 데이터가 없습니다!"); return false; }
             if (editingMessageIndex !== null) { alert("대사 수정(저장/취소)을 완료한 뒤 다운로드해주세요."); return false; }
             return true;
         }
 
-        // 1. JSON 내보내기
         btnJson.addEventListener('click', () => {
             if (!checkExportReady()) return;
             const jsonString = JSON.stringify(currentJsonData, null, 2);
@@ -624,7 +598,6 @@
             saveAs(blob, (titleInput.value || "수정본") + "_수정됨.json");
         });
 
-        // 2. TXT 내보내기
         btnTxt.addEventListener('click', () => {
             if (!checkExportReady()) return;
             let txtString = `제목: ${titleInput.value || '제목 없음'}\n작가: ${authorInput.value || 'Unknown'}\n\n`;
@@ -638,45 +611,6 @@
             const blob = new Blob([txtString], { type: "text/plain;charset=utf-8" });
             saveAs(blob, (titleInput.value || "수정본") + "_수정됨.txt");
         });
-
-        // 3. HTML 내보내기 (데이터 임베딩 포함)
-        btnHtml.addEventListener('click', () => {
-            if (!checkExportReady()) return;
-            let htmlContent = `<!DOCTYPE html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n<title>${titleInput.value || '제목 없음'}</title>\n`;
-            htmlContent += `<style>
-                body { font-family: 'Malgun Gothic', sans-serif; line-height: 1.8; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f5f6fa; color: #2f3640; }
-                .msg { padding: 20px; border-radius: 8px; margin-bottom: 20px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-                .user { border-left: 5px solid #fbc531; }
-                .assistant { border-left: 5px solid #3498db; }
-                .bold { font-weight: bold; }
-                .italic { font-style: italic; }
-                h1, h2, h3, h4, h5, h6 { margin: 0.5em 0; line-height: 1.4; }
-                img { max-width: 100%; height: auto; display: block; margin: 15px 0; border-radius: 6px; }
-            </style>\n</head>\n<body>\n`;
-            htmlContent += `<h1 style="text-align:center;">${titleInput.value || '제목 없음'}</h1>\n`;
-            htmlContent += `<h3 style="text-align:center; color:#7f8fa6; margin-bottom:30px;">${authorInput.value || 'Unknown'}</h3>\n`;
-
-            const messages = currentJsonData.messages ||[];
-            messages.forEach(msg => {
-                let text = msg.content || '';
-                text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                text = text.replace(/^(#{1,6})\s+(.*)$/gm, (m, h, c) => `<h${h.length}>${c}</h${h.length}>`);
-                text = text.replace(/\*\*([^\n]+?)\*\*/g, '<span class="bold">$1</span>');
-                text = text.replace(/\*([^\n]+?)\*/g, '<span class="italic">$1</span>');
-                text = text.replace(/\n/g, '<br/>');
-                
-                const cls = msg.role === 'user' ? 'user' : 'assistant';
-                htmlContent += `<div class="msg ${cls}"><p>${text}</p></div>\n`;
-            });
-            
-            // 추후 다시 스튜디오에 업로드 시 완벽하게 복구되도록 원본 JSON을 주석으로 몰래 삽입합니다.
-            htmlContent += `\n<!--EPUB_STUDIO_DATA\n${JSON.stringify(currentJsonData)}\n-->\n`;
-            htmlContent += `</body>\n</html>`;
-
-            const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
-            saveAs(blob, (titleInput.value || "수정본") + "_수정됨.html");
-        });
-        // ==========================================
 
         async function fetchImageAsArrayBuffer(url) {
             try { let r = await fetch(url); if (r.ok) return await r.arrayBuffer(); } catch(e){}
@@ -753,7 +687,6 @@
                     bodyHtml = bodyHtml.split(original).join(local);
                 }
 
-                // [수정된 부분] UUID를 wrtn-epub- 로 변경
                 const uniqueId = crypto.randomUUID ? crypto.randomUUID() : 'wrtn-epub-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
 
                 zip.file("mimetype", "application/epub+zip", {compression: "STORE"});
