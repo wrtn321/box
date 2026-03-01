@@ -336,6 +336,7 @@
                     isDirty = false; // 새로 불러왔으니 초기화
                     updatePreview();
                 } catch (err) { alert("파일을 읽는 중 오류가 발생했습니다!"); }
+                jsonInput.value = '';
             };
             reader.readAsText(file);
         });
@@ -547,6 +548,7 @@
                     currentJsonData   = item.data;
                     titleInput.value  = currentJsonData.title || '';
                     authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || '';
+                    jsonInput.value = '';
                     isDirty = false;
                     updatePreview();
                     dropdownMenu.classList.remove('show');
