@@ -50,10 +50,8 @@
         .msg-controls { display: flex; opacity: 0; transition: 0.2s; position: absolute; top: 5px; right: 5px; gap: 5px; z-index: 5; }
         .msg-block:hover .msg-controls { opacity: 1; }
         
-        /* [수정된 부분] 입력창 높이 자동조절을 위한 스타일 및 스크롤바 감추기 */
         .edit-textarea { width: 100%; box-sizing: border-box; padding: 10px; font-family: inherit; border: 2px solid #3498db; border-radius: 4px; resize: none; overflow: hidden; font-size: 15px; line-height: 1.6; }
 
-        /*[추가된 부분] 드롭다운 토글 메뉴 관련 CSS */
         .dropdown-container { position: relative; display: inline-block; }
         .btn-toggle { background: none; border: none; font-size: 1.8rem; font-weight: bold; color: #2f3640; cursor: pointer; padding: 0 10px; transition: 0.2s; }
         .btn-toggle:hover { color: #8e44ad; }
@@ -76,7 +74,6 @@
         img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em auto 0.2em auto; border-radius: 5px; }
         h2.preview-title { text-align: center; } 
         
-        /* [추가된 부분] 마크다운 헤더용 깔끔한 여백 CSS */
         .msg-content h1, .msg-content h2, .msg-content h3, .msg-content h4, .msg-content h5, .msg-content h6 { margin: 0.6em 0; line-height: 1.4; color: #2f3640; }
 
         .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; color: white; font-size: 20px; font-weight: bold; flex-direction: column; text-align: center; line-height: 1.6; }
@@ -90,7 +87,7 @@
             #preview-pane { padding: 10px; }
             #preview-content { padding: 15px; }
             .msg-controls { position: relative; opacity: 1; justify-content: flex-end; margin-top: 5px; top: 0; right: 0; }
-            .save-actions { display: flex; } /* 모바일에선 이모지 항상 보임 */
+            .save-actions { display: flex; } 
         }
     </style>
 </head>
@@ -102,58 +99,29 @@
         <div id="progress-text">(0 / 0)</div>
     </div>
 
-    <!-- 왼쪽 설정 패널 -->
     <div id="control-pane">
         <h2 style="margin-top: 0;">EPUB 설정</h2>
-        
+        <div class="control-group"><label>1. JSON 파일 업로드</label><input type="file" id="json-file" accept=".json"></div>
+        <div class="control-group"><label>2. 표지 이미지 (선택)</label><input type="file" id="cover-file" accept="image/*"><img id="cover-preview-img" src="" alt="표지 미리보기"></div>
+        <div class="control-group"><label>3. 책 정보</label><input type="text" id="book-title" placeholder="책 제목" style="margin-bottom: 10px;"><input type="text" id="book-author" placeholder="작가 이름"></div>
         <div class="control-group">
-            <label>1. JSON 파일 업로드</label>
-            <input type="file" id="json-file" accept=".json">
-        </div>
-
-        <div class="control-group">
-            <label>2. 표지 이미지 (선택)</label>
-            <input type="file" id="cover-file" accept="image/*">
-            <img id="cover-preview-img" src="" alt="표지 미리보기">
-        </div>
-
-        <div class="control-group">
-            <label>3. 책 정보</label>
-            <input type="text" id="book-title" placeholder="책 제목" style="margin-bottom: 10px;">
-            <input type="text" id="book-author" placeholder="작가 이름">
-        </div>
-
-        <div class="control-group">
-            <label>
-                4. HUD(상태창) 패턴 
-                <button id="add-hud-btn" class="btn-small btn-add">+ 추가</button>
-            </label>
+            <label>4. HUD(상태창) 패턴 <button id="add-hud-btn" class="btn-small btn-add">+ 추가</button></label>
             <p style="font-size: 0.85rem; color: #ff4757; font-weight: bold; margin-top: 0;">※ 변하는 부분은 달러 3개($$$)로 쓰세요!<br>※ 체크박스를 끄면 해당 패턴은 삭제되지 않습니다.</p>
             <div id="hud-container"></div>
         </div>
-
         <div class="control-group">
             <label>5. 옵션 설정</label>
-            <label style="font-weight: normal; cursor: pointer; display: block; margin-bottom: 10px;">
-                <input type="checkbox" id="user-divider" checked>
-                유저 대사 위아래로 구분선(---) 넣기
-            </label>
-            <label style="font-weight: normal; cursor: pointer; display: block;">
-                <input type="checkbox" id="remove-img">
-                '![이미지](주소)' 문구 완전 삭제
-            </label>
+            <label style="font-weight: normal; cursor: pointer; display: block; margin-bottom: 10px;"><input type="checkbox" id="user-divider" checked> 유저 대사 위아래로 구분선(---) 넣기</label>
+            <label style="font-weight: normal; cursor: pointer; display: block;"><input type="checkbox" id="remove-img"> '![이미지](주소)' 문구 완전 삭제</label>
         </div>
-
         <button class="btn" id="download-btn">✨ EPUB 다운로드 ✨</button>
         <button class="btn btn-json" id="download-json-btn">💾 수정된 JSON 파일 보존하기</button>
         <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 15px;">※ 설정만 자동 저장되며, JSON은 별도로 다운받아야 합니다.</p>
     </div>
 
-    <!-- 오른쪽 미리보기 패널 -->
     <div id="preview-pane">
         <div class="pane-title-container">
             <div class="pane-title">📖 실시간 미리보기 (수정/삭제 가능)</div>
-            <!-- [추가된 부분] 점 세 개 토글 드롭다운 메뉴 UI -->
             <div class="dropdown-container">
                 <button class="btn-toggle" id="save-menu-toggle" title="임시저장 메뉴">⋮</button>
                 <div id="save-dropdown" class="dropdown-menu">
@@ -173,8 +141,6 @@
         let currentJsonData = null;
         let coverFileContent = null;
         let coverFileName = null;
-        
-        // [추가된 부분] 현재 수정 중인 대사가 있는지 추적 (잠금 기능)
         let editingMessageIndex = null;
 
         const jsonInput = document.getElementById('json-file');
@@ -192,7 +158,6 @@
         const loadingScreen = document.getElementById('loading-screen');
         const progressText = document.getElementById('progress-text');
         
-        // [추가된 부분] 드롭다운 관련 DOM
         const dropdownToggle = document.getElementById('save-menu-toggle');
         const dropdownMenu = document.getElementById('save-dropdown');
         const saveNewBtn = document.getElementById('btn-save-new');
@@ -314,7 +279,6 @@
 
         function escapeRegExp(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
-        //[추가된 부분] 대사 편집 시 다른 화면 조작을 막는 락(Lock) 기능
         function toggleUIControls(disabled) {
             document.querySelectorAll('#control-pane input, #control-pane button, .hud-input, .hud-checkbox').forEach(el => {
                 el.disabled = disabled;
@@ -326,7 +290,6 @@
         }
 
         function updatePreview() {
-            // 수정 중일 때는 렌더링 덮어쓰기 방지
             if (editingMessageIndex !== null) return; 
             if (!currentJsonData) return;
             
@@ -365,30 +328,29 @@
                 if (!text) return;
 
                 // ==========================================
-                // [수정된 핵심 부분] 마크다운 헤더 및 개행 로직 호환 처리
+                // [오류 수정된 부분] 헤더 및 볼드체 파싱 로직 개선
                 // ==========================================
-                // 1. 헤더 변환 (# -> h1~h6)
+                // 1. 헤더 처리 (# -> h1~h6)
                 text = text.replace(/^(#{1,6})\s+(.*)$/gm, function(match, hashes, content) {
                     const level = hashes.length;
                     return `<h${level}>${content}</h${level}>`;
                 });
 
-                // 2. 줄바꿈을 <br/>로 치환
+                // 2. 볼드/이탤릭 처리 (핵심: 같은 줄 안에서만 짝을 찾도록 [^\n]+? 로 제한)
+                // 이렇게 하면 짝이 안 맞는 **나 *가 있어도 문단 전체가 망가지지 않습니다.
+                text = text.replace(/\*\*([^\n]+?)\*\*/g, '<span class="bold">$1</span>');
+                text = text.replace(/\*([^\n]+?)\*/g, '<span class="italic">$1</span>');
+
+                // 3. 줄바꿈을 <br/>로 치환
                 text = text.replace(/\n/g, '<br/>');
                 
-                // 3. 이미지 주변 <br/> 정리
+                // 4. 이미지 및 헤더 주변 불필요한 <br/> 정리
                 text = text.replace(/(?:<br\/>\s*)*(<img[^>]+>)(?:\s*<br\/>)*/g, function(match, imgTag, offset) {
                     if (offset === 0) return imgTag;
                     return '<br/>' + imgTag;
                 });
-
-                // 4. 헤더(h1~h6) 앞뒤에 불필요하게 붙은 <br/> 태그 정리 (간격 꼬임 방지)
                 text = text.replace(/(<\/h[1-6]>)<br\/>/g, '$1');
                 text = text.replace(/<br\/>(<h[1-6]>)/g, '$1');
-
-                // 5. 볼드체 및 이탤릭체 처리 (이제 <h3><span class="bold">내용</span></h3> 형태로 완벽히 병합됨)
-                text = text.replace(/\*\*([\s\S]*?)\*\*/g, '<span class="bold">$1</span>');
-                text = text.replace(/\*([\s\S]*?)\*/g, '<span class="italic">$1</span>');
                 // ==========================================
 
                 let blockHtml = '';
@@ -428,28 +390,37 @@
                 return;
             }
             editingMessageIndex = index;
-            toggleUIControls(true); //[추가된 부분] 화면 잠금
+            toggleUIControls(true); 
 
             const block = document.getElementById(`msg-block-${index}`);
             const contentDiv = block.querySelector('.msg-content');
             const controlsDiv = block.querySelector('.msg-controls');
             const rawText = currentJsonData.messages[index].content;
+            
+            // [스크롤 튐 현상 수정을 위해 스크롤 컨테이너 불러오기]
+            const previewPane = document.getElementById('preview-pane');
 
-            // [수정된 부분] 텍스트 입력창 높이 자동 조절 기능 적용
             contentDiv.innerHTML = `<textarea class="edit-textarea" id="edit-text-${index}">${rawText}</textarea>`;
             
             const textarea = document.getElementById(`edit-text-${index}`);
             
-            // 입력창 크기를 초기 텍스트 높이에 맞게 조절
             setTimeout(() => {
+                const currentScroll = previewPane.scrollTop;
                 textarea.style.height = "auto";
                 textarea.style.height = (textarea.scrollHeight + 5) + "px";
+                previewPane.scrollTop = currentScroll; // 스크롤 복구
             }, 0);
 
-            // 사용자가 글씨를 칠 때마다 실시간으로 높이 조절
+            // [스크롤 튐 현상 수정된 부분]
             textarea.addEventListener("input", function() {
+                // 크기 조절 전에 현재 스크롤 위치를 기억
+                const currentScroll = previewPane.scrollTop;
+                
                 this.style.height = "auto";
                 this.style.height = (this.scrollHeight) + "px";
+                
+                // 크기가 변한 직후 스크롤을 원래 위치로 강제 고정
+                previewPane.scrollTop = currentScroll;
             });
 
             controlsDiv.innerHTML = `
@@ -457,7 +428,6 @@
                 <button class="btn-small btn-remove" style="disabled:false;" onclick="cancelEdit()">취소</button>
             `;
             
-            // 저장/취소 버튼만 다시 활성화
             controlsDiv.querySelectorAll('button').forEach(btn => btn.disabled = false);
         };
 
@@ -467,20 +437,17 @@
                 currentJsonData.messages[index].content = textarea.value;
             }
             editingMessageIndex = null;
-            toggleUIControls(false); // 화면 잠금 해제
+            toggleUIControls(false); 
             updatePreview(); 
         };
 
         window.cancelEdit = function() {
             editingMessageIndex = null;
-            toggleUIControls(false); // 화면 잠금 해제
+            toggleUIControls(false); 
             updatePreview();
         };
 
-        // ==========================================
-        // [추가된 부분] 점 세 개(⋮) 임시저장 드롭다운 메뉴 로직
-        // ==========================================
-        
+        // 드롭다운 및 저장 로직
         let saveList = JSON.parse(localStorage.getItem('epubStudioSaveList') || '[]');
 
         function renderSaveList() {
@@ -527,7 +494,7 @@
                     alert("성공적으로 저장되었습니다!");
                 } catch(e) {
                     alert("저장 공간이 부족합니다! 안 쓰는 기존 임시저장 데이터를 삭제해주세요.");
-                    saveList.shift(); // 용량 초과시 방금 넣은 것 취소
+                    saveList.shift();
                 }
             }
         });
@@ -543,7 +510,7 @@
         };
 
         window.renameSave = function(idx, e) {
-            e.stopPropagation(); // 클릭 시 불러오기 방지
+            e.stopPropagation(); 
             let newName = prompt("새로운 이름을 입력하세요:", saveList[idx].title);
             if(newName && newName.trim() !== "") {
                 saveList[idx].title = newName.trim();
@@ -553,7 +520,7 @@
         };
 
         window.deleteSave = function(idx, e) {
-            e.stopPropagation(); // 클릭 시 불러오기 방지
+            e.stopPropagation(); 
             if(confirm("이 저장본을 완전히 삭제하시겠습니까?")) {
                 saveList.splice(idx, 1);
                 localStorage.setItem('epubStudioSaveList', JSON.stringify(saveList));
@@ -570,8 +537,6 @@
             const fileName = (titleInput.value || "수정본") + "_수정됨.json";
             saveAs(blob, fileName);
         });
-
-        // ==========================================
 
         async function fetchImageAsArrayBuffer(url) {
             try { let r = await fetch(url); if (r.ok) return await r.arrayBuffer(); } catch(e){}
@@ -660,7 +625,6 @@
 body { font-family: sans-serif; line-height: 1.8; }
 h2.preview-title { text-align: center; }
 p { margin: 0.5em 0; text-align: justify; }
-/* EPUB 내부에 마크다운 헤더용 여백 동일 적용 */
 h1, h2, h3, h4, h5, h6 { margin: 0.5em 0; line-height: 1.3; }
 .bold { font-weight: bold; }
 .italic { font-style: italic; }
