@@ -122,11 +122,15 @@
     <div id="preview-pane">
         <div class="pane-title-container">
             <div class="pane-title">📖 실시간 미리보기 (수정/삭제 가능)</div>
-            <div class="dropdown-container">
-                <button class="btn-toggle" id="save-menu-toggle" title="임시저장 메뉴">⋮</button>
-                <div id="save-dropdown" class="dropdown-menu">
-                    <div class="dropdown-header" id="btn-save-new">💾 임시저장 (새로 만들기)</div>
-                    <div id="save-list"></div>
+            <div>
+                <button class="btn-small btn-edit" id="temp-load-btn" style="background-color: #8e44ad; margin-right: 5px;">불러오기</button>
+                <button class="btn-small btn-edit" id="temp-save-btn" style="margin-right: 15px;">임시저장</button>
+                <div class="dropdown-container">
+                    <button class="btn-toggle" id="save-menu-toggle" title="저장소 메뉴">⋮</button>
+                    <div id="save-dropdown" class="dropdown-menu">
+                        <div class="dropdown-header" id="btn-save-new">💾 저장소에 새로 만들기</div>
+                        <div id="save-list"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -136,6 +140,67 @@
     </div>
 
     <script>
+        // ==========================================
+        // [수정된 부분 1] 무제한 용량을 위한 순수 IndexedDB 래퍼(Wrapper)
+        // ==========================================
+        const DB_NAME = 'EpubStudioDB';
+        const DB_VERSION = 1;
+        let idb;
+
+        const initDB = () => {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('saves')) {
+                        db.createObjectStore('saves', { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains('temp')) {
+                        db.createObjectStore('temp', { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = (e) => { idb = e.target.result; resolve(); };
+                request.onerror = (e) => reject(e.target.error);
+            });
+        };
+
+        const dbPut = (storeName, data) => {
+            return new Promise((resolve, reject) => {
+                const tx = idb.transaction(storeName, 'readwrite');
+                const req = tx.objectStore(storeName).put(data);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        };
+
+        const dbGet = (storeName, id) => {
+            return new Promise((resolve, reject) => {
+                const tx = idb.transaction(storeName, 'readonly');
+                const req = tx.objectStore(storeName).get(id);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        };
+
+        const dbGetAll = (storeName) => {
+            return new Promise((resolve, reject) => {
+                const tx = idb.transaction(storeName, 'readonly');
+                const req = tx.objectStore(storeName).getAll();
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        };
+
+        const dbDelete = (storeName, id) => {
+            return new Promise((resolve, reject) => {
+                const tx = idb.transaction(storeName, 'readwrite');
+                const req = tx.objectStore(storeName).delete(id);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        };
+        // ==========================================
+
         const MY_PROXY_URL = "https://proxy.wrtn321.workers.dev";
         
         let currentJsonData = null;
@@ -158,44 +223,15 @@
         const loadingScreen = document.getElementById('loading-screen');
         const progressText = document.getElementById('progress-text');
         
+        const tempSaveBtn = document.getElementById('temp-save-btn');
+        const tempLoadBtn = document.getElementById('temp-load-btn');
+        
         const dropdownToggle = document.getElementById('save-menu-toggle');
         const dropdownMenu = document.getElementById('save-dropdown');
         const saveNewBtn = document.getElementById('btn-save-new');
         const saveListContainer = document.getElementById('save-list');
 
-        addHudBtn.addEventListener('click', () => addHudField('', true));
-
-        function addHudField(value = '', isChecked = true) {
-            const div = document.createElement('div');
-            div.className = 'hud-item';
-
-            const chk = document.createElement('input');
-            chk.type = 'checkbox';
-            chk.className = 'hud-checkbox';
-            chk.checked = isChecked;
-            chk.addEventListener('change', () => { saveSettings(); updatePreview(); });
-
-            const input = document.createElement('textarea');
-            input.className = 'hud-input';
-            input.rows = 2;
-            input.value = value;
-            input.placeholder = "예: **[ $$$ ]**";
-            input.addEventListener('input', () => { saveSettings(); updatePreview(); });
-
-            const rmBtn = document.createElement('button');
-            rmBtn.className = 'btn-small btn-remove';
-            rmBtn.textContent = 'X';
-            rmBtn.onclick = () => { div.remove(); saveSettings(); updatePreview(); };
-
-            div.appendChild(chk);
-            div.appendChild(input);
-            div.appendChild(rmBtn);
-            hudContainer.appendChild(div);
-
-            saveSettings();
-            updatePreview();
-        }
-
+        // 옵션들은 용량이 매우 작으므로 localStorage 유지 (로딩 속도 이점)
         function saveSettings() {
             const huds = Array.from(document.querySelectorAll('.hud-item')).map(item => ({
                 value: item.querySelector('.hud-input').value,
@@ -231,12 +267,42 @@
             currentJsonData = null;
             previewContent.innerHTML = '<p style="color: #7f8fa6; text-align: center; margin-top: 20vh;">JSON 파일을 업로드하거나 저장된 데이터를 불러오세요.</p>';
         }
+
+        function addHudField(value = '', isChecked = true) {
+            const div = document.createElement('div');
+            div.className = 'hud-item';
+
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.className = 'hud-checkbox';
+            chk.checked = isChecked;
+            chk.addEventListener('change', () => { saveSettings(); updatePreview(); });
+
+            const input = document.createElement('textarea');
+            input.className = 'hud-input';
+            input.rows = 2;
+            input.value = value;
+            input.placeholder = "예: **[ $$$ ]**";
+            input.addEventListener('input', () => { saveSettings(); updatePreview(); });
+
+            const rmBtn = document.createElement('button');
+            rmBtn.className = 'btn-small btn-remove';
+            rmBtn.textContent = 'X';
+            rmBtn.onclick = () => { div.remove(); saveSettings(); updatePreview(); };
+
+            div.appendChild(chk);
+            div.appendChild(input);
+            div.appendChild(rmBtn);
+            hudContainer.appendChild(div);
+
+            saveSettings();
+            updatePreview();
+        }
+
+        addHudBtn.addEventListener('click', () => addHudField('', true));
         
         const watchInputs =[titleInput, authorInput, removeImgCheck, userDividerCheck];
-        watchInputs.forEach(el => {
-            el.addEventListener('input', () => { saveSettings(); updatePreview(); });
-        });
-
+        watchInputs.forEach(el => { el.addEventListener('input', () => { saveSettings(); updatePreview(); }); });
         titleInput.addEventListener('input', () => { if(currentJsonData) currentJsonData.title = titleInput.value; });
         authorInput.addEventListener('input', () => {
             if(currentJsonData) {
@@ -263,11 +329,7 @@
 
         coverInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if (!file) {
-                coverPreviewImg.style.display = 'none';
-                coverFileContent = null;
-                return;
-            }
+            if (!file) { coverPreviewImg.style.display = 'none'; coverFileContent = null; return; }
             coverFileName = file.name;
             coverPreviewImg.src = URL.createObjectURL(file);
             coverPreviewImg.style.display = 'block';
@@ -280,13 +342,11 @@
         function escapeRegExp(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
         function toggleUIControls(disabled) {
-            document.querySelectorAll('#control-pane input, #control-pane button, .hud-input, .hud-checkbox').forEach(el => {
-                el.disabled = disabled;
-            });
-            document.querySelectorAll('.msg-controls button').forEach(btn => {
-                btn.disabled = disabled;
-            });
+            document.querySelectorAll('#control-pane input, #control-pane button, .hud-input, .hud-checkbox').forEach(el => el.disabled = disabled);
+            document.querySelectorAll('.msg-controls button').forEach(btn => btn.disabled = disabled);
             dropdownToggle.disabled = disabled;
+            tempSaveBtn.disabled = disabled;
+            tempLoadBtn.disabled = disabled;
         }
 
         function updatePreview() {
@@ -315,11 +375,8 @@
                 text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 text = text.split('\n').map(line => line.trimEnd()).join('\n');
 
-                if (removeImgCheck.checked) {
-                    text = text.replace(/!\[(.*?)\]\((.*?)\)\n?/g, '');
-                } else {
-                    text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img class="content-img" src="$2" alt="$1" />');
-                }
+                if (removeImgCheck.checked) text = text.replace(/!\[(.*?)\]\((.*?)\)\n?/g, '');
+                else text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img class="content-img" src="$2" alt="$1" />');
 
                 hudRegexes.forEach(regex => { text = text.replace(regex, ''); });
                 text = text.trim();
@@ -327,42 +384,30 @@
 
                 if (!text) return;
 
-                // ==========================================
-                // [오류 수정된 부분] 헤더 및 볼드체 파싱 로직 개선
-                // ==========================================
-                // 1. 헤더 처리 (# -> h1~h6)
                 text = text.replace(/^(#{1,6})\s+(.*)$/gm, function(match, hashes, content) {
                     const level = hashes.length;
                     return `<h${level}>${content}</h${level}>`;
                 });
 
-                // 2. 볼드/이탤릭 처리 (핵심: 같은 줄 안에서만 짝을 찾도록 [^\n]+? 로 제한)
-                // 이렇게 하면 짝이 안 맞는 **나 *가 있어도 문단 전체가 망가지지 않습니다.
                 text = text.replace(/\*\*([^\n]+?)\*\*/g, '<span class="bold">$1</span>');
                 text = text.replace(/\*([^\n]+?)\*/g, '<span class="italic">$1</span>');
 
-                // 3. 줄바꿈을 <br/>로 치환
                 text = text.replace(/\n/g, '<br/>');
                 
-                // 4. 이미지 및 헤더 주변 불필요한 <br/> 정리
                 text = text.replace(/(?:<br\/>\s*)*(<img[^>]+>)(?:\s*<br\/>)*/g, function(match, imgTag, offset) {
                     if (offset === 0) return imgTag;
                     return '<br/>' + imgTag;
                 });
                 text = text.replace(/(<\/h[1-6]>)<br\/>/g, '$1');
                 text = text.replace(/<br\/>(<h[1-6]>)/g, '$1');
-                // ==========================================
 
                 let blockHtml = '';
-                if (role === 'assistant') {
-                    blockHtml += `<p>${text}</p>\n`;
-                } else if (role === 'user') {
+                if (role === 'assistant') blockHtml += `<p>${text}</p>\n`;
+                else if (role === 'user') {
                     if (userDividerCheck.checked) blockHtml += `<hr class="user-divider"/>\n`;
                     blockHtml += `<p class="user-text">${text}</p>\n`;
                     if (userDividerCheck.checked) blockHtml += `<hr class="user-divider"/>\n`;
-                } else {
-                    blockHtml += `<p>${text}</p>\n`;
-                }
+                } else blockHtml += `<p>${text}</p>\n`;
 
                 html += `
                 <div class="msg-block" id="msg-block-${index}">
@@ -378,17 +423,11 @@
         }
 
         window.deleteMessage = function(index) {
-            if (confirm("이 대사를 삭제하시겠습니까?")) {
-                currentJsonData.messages.splice(index, 1);
-                updatePreview(); 
-            }
+            if (confirm("이 대사를 삭제하시겠습니까?")) { currentJsonData.messages.splice(index, 1); updatePreview(); }
         };
 
         window.editMessage = function(index) {
-            if (editingMessageIndex !== null) {
-                alert("먼저 수정 중인 대사를 저장하거나 취소해주세요!");
-                return;
-            }
+            if (editingMessageIndex !== null) return alert("먼저 수정 중인 대사를 저장하거나 취소해주세요!");
             editingMessageIndex = index;
             toggleUIControls(true); 
 
@@ -397,140 +436,153 @@
             const controlsDiv = block.querySelector('.msg-controls');
             const rawText = currentJsonData.messages[index].content;
             
-            // [스크롤 튐 현상 수정을 위해 스크롤 컨테이너 불러오기]
             const previewPane = document.getElementById('preview-pane');
 
             contentDiv.innerHTML = `<textarea class="edit-textarea" id="edit-text-${index}">${rawText}</textarea>`;
-            
             const textarea = document.getElementById(`edit-text-${index}`);
             
             setTimeout(() => {
                 const currentScroll = previewPane.scrollTop;
                 textarea.style.height = "auto";
                 textarea.style.height = (textarea.scrollHeight + 5) + "px";
-                previewPane.scrollTop = currentScroll; // 스크롤 복구
+                previewPane.scrollTop = currentScroll; 
             }, 0);
 
-            // [스크롤 튐 현상 수정된 부분]
             textarea.addEventListener("input", function() {
-                // 크기 조절 전에 현재 스크롤 위치를 기억
                 const currentScroll = previewPane.scrollTop;
-                
                 this.style.height = "auto";
                 this.style.height = (this.scrollHeight) + "px";
-                
-                // 크기가 변한 직후 스크롤을 원래 위치로 강제 고정
                 previewPane.scrollTop = currentScroll;
             });
 
-            controlsDiv.innerHTML = `
-                <button class="btn-small btn-add" style="float:none; disabled:false;" onclick="saveMessage(${index})">저장</button>
-                <button class="btn-small btn-remove" style="disabled:false;" onclick="cancelEdit()">취소</button>
-            `;
-            
+            controlsDiv.innerHTML = `<button class="btn-small btn-add" style="float:none;" onclick="saveMessage(${index})">저장</button><button class="btn-small btn-remove" onclick="cancelEdit()">취소</button>`;
             controlsDiv.querySelectorAll('button').forEach(btn => btn.disabled = false);
         };
 
         window.saveMessage = function(index) {
             const textarea = document.getElementById(`edit-text-${index}`);
-            if (textarea) {
-                currentJsonData.messages[index].content = textarea.value;
-            }
+            if (textarea) currentJsonData.messages[index].content = textarea.value;
             editingMessageIndex = null;
             toggleUIControls(false); 
             updatePreview(); 
         };
 
-        window.cancelEdit = function() {
-            editingMessageIndex = null;
-            toggleUIControls(false); 
-            updatePreview();
-        };
+        window.cancelEdit = function() { editingMessageIndex = null; toggleUIControls(false); updatePreview(); };
 
-        // 드롭다운 및 저장 로직
-        let saveList = JSON.parse(localStorage.getItem('epubStudioSaveList') || '[]');
+        // ==========================================
+        // [수정된 부분 2] IndexedDB를 활용한 임시저장/불러오기 기능 연결
+        // ==========================================
+        tempSaveBtn.addEventListener('click', async () => {
+            if (!currentJsonData) return alert("저장할 데이터가 없습니다. 먼저 JSON 파일을 업로드하세요.");
+            try {
+                await dbPut('temp', { id: 'quickSave', data: currentJsonData });
+                alert("✅ 현재까지 수정한 내용이 데이터베이스(IndexedDB)에 안전하게 임시저장되었습니다!");
+            } catch(e) { alert("임시저장 실패!"); }
+        });
 
-        function renderSaveList() {
+        tempLoadBtn.addEventListener('click', async () => {
+            try {
+                const record = await dbGet('temp', 'quickSave');
+                if (!record) return alert("임시저장된 데이터가 없습니다.");
+                if (confirm("임시저장된 데이터를 불러오시겠습니까? (현재 화면의 내용은 덮어씌워집니다.)")) {
+                    currentJsonData = record.data;
+                    titleInput.value = currentJsonData.title || '';
+                    authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || '';
+                    updatePreview();
+                }
+            } catch(e) { alert("불러오기 실패!"); }
+        });
+
+        async function renderSaveList() {
             saveListContainer.innerHTML = '';
-            if(saveList.length === 0) {
-                saveListContainer.innerHTML = '<div style="padding:15px; text-align:center; color:#999; font-size:0.85rem;">저장된 항목이 없습니다.</div>';
-                return;
-            }
-            saveList.forEach((item, idx) => {
-                const div = document.createElement('div');
-                div.className = 'save-item';
-                div.innerHTML = `
-                    <div class="save-title-text" title="${item.title}">${item.title}</div>
-                    <div class="save-actions">
-                        <button class="icon-btn" title="이름 변경" onclick="renameSave(${idx}, event)">✏️</button>
-                        <button class="icon-btn" title="삭제" onclick="deleteSave(${idx}, event)">❌</button>
-                    </div>
-                `;
-                div.onclick = () => loadSave(idx);
-                saveListContainer.appendChild(div);
-            });
+            try {
+                let saves = await dbGetAll('saves');
+                if(saves.length === 0) {
+                    saveListContainer.innerHTML = '<div style="padding:15px; text-align:center; color:#999; font-size:0.85rem;">저장된 항목이 없습니다.</div>';
+                    return;
+                }
+                // 최신순 정렬 (ID가 타임스탬프)
+                saves.sort((a,b) => b.id - a.id);
+                saves.forEach((item) => {
+                    const div = document.createElement('div');
+                    div.className = 'save-item';
+                    div.innerHTML = `
+                        <div class="save-title-text" title="${item.title}">${item.title}</div>
+                        <div class="save-actions">
+                            <button class="icon-btn" title="이름 변경" onclick="renameSaveDB(${item.id}, event)">✏️</button>
+                            <button class="icon-btn" title="삭제" onclick="deleteSaveDB(${item.id}, event)">❌</button>
+                        </div>
+                    `;
+                    div.onclick = () => loadSaveDB(item.id);
+                    saveListContainer.appendChild(div);
+                });
+            } catch(e) { console.error(e); }
         }
 
-        dropdownToggle.addEventListener('click', (e) => {
+        dropdownToggle.addEventListener('click', async (e) => {
             e.stopPropagation();
             dropdownMenu.classList.toggle('show');
-            renderSaveList();
+            if (dropdownMenu.classList.contains('show')) await renderSaveList();
         });
 
         document.addEventListener('click', () => { dropdownMenu.classList.remove('show'); });
         dropdownMenu.addEventListener('click', (e) => e.stopPropagation());
 
-        saveNewBtn.addEventListener('click', () => {
+        saveNewBtn.addEventListener('click', async () => {
             if(!currentJsonData) return alert("저장할 데이터가 없습니다. 파일을 먼저 업로드하세요.");
-            
             let defaultName = (currentJsonData.title || "제목 없음") + " (" + new Date().toLocaleTimeString('ko-KR', {hour12:false, hour:'2-digit', minute:'2-digit'}) + ")";
-            let name = prompt("임시저장할 이름을 입력하세요:", defaultName);
+            let name = prompt("저장소에 보관할 이름을 입력하세요:", defaultName);
             
             if(name && name.trim() !== "") {
                 try {
-                    saveList.unshift({ id: Date.now(), title: name, data: currentJsonData });
-                    localStorage.setItem('epubStudioSaveList', JSON.stringify(saveList));
-                    renderSaveList();
-                    alert("성공적으로 저장되었습니다!");
-                } catch(e) {
-                    alert("저장 공간이 부족합니다! 안 쓰는 기존 임시저장 데이터를 삭제해주세요.");
-                    saveList.shift();
-                }
+                    await dbPut('saves', { id: Date.now(), title: name, data: currentJsonData });
+                    await renderSaveList();
+                    alert("성공적으로 저장되었습니다! 용량 걱정 없이 보관됩니다.");
+                } catch(e) { alert("데이터베이스 저장에 실패했습니다."); }
             }
         });
 
-        window.loadSave = function(idx) {
-            if(confirm(`[${saveList[idx].title}] 데이터를 불러오시겠습니까?\n(현재 화면의 내용은 덮어씌워집니다)`)) {
-                currentJsonData = saveList[idx].data;
-                titleInput.value = currentJsonData.title || '';
-                authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || '';
-                updatePreview();
-                dropdownMenu.classList.remove('show');
-            }
+        window.loadSaveDB = async function(id) {
+            try {
+                const item = await dbGet('saves', id);
+                if(item && confirm(`[${item.title}] 데이터를 불러오시겠습니까?\n(현재 화면의 내용은 덮어씌워집니다)`)) {
+                    currentJsonData = item.data;
+                    titleInput.value = currentJsonData.title || '';
+                    authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || '';
+                    updatePreview();
+                    dropdownMenu.classList.remove('show');
+                }
+            } catch(e) { alert("데이터를 불러오지 못했습니다."); }
         };
 
-        window.renameSave = function(idx, e) {
+        window.renameSaveDB = async function(id, e) {
             e.stopPropagation(); 
-            let newName = prompt("새로운 이름을 입력하세요:", saveList[idx].title);
-            if(newName && newName.trim() !== "") {
-                saveList[idx].title = newName.trim();
-                localStorage.setItem('epubStudioSaveList', JSON.stringify(saveList));
-                renderSaveList();
-            }
+            try {
+                const item = await dbGet('saves', id);
+                if(!item) return;
+                let newName = prompt("새로운 이름을 입력하세요:", item.title);
+                if(newName && newName.trim() !== "") {
+                    item.title = newName.trim();
+                    await dbPut('saves', item);
+                    await renderSaveList();
+                }
+            } catch(e) { console.error(e); }
         };
 
-        window.deleteSave = function(idx, e) {
+        window.deleteSaveDB = async function(id, e) {
             e.stopPropagation(); 
             if(confirm("이 저장본을 완전히 삭제하시겠습니까?")) {
-                saveList.splice(idx, 1);
-                localStorage.setItem('epubStudioSaveList', JSON.stringify(saveList));
-                renderSaveList();
+                try {
+                    await dbDelete('saves', id);
+                    await renderSaveList();
+                } catch(e) { alert("삭제 실패!"); }
             }
         };
+        // ==========================================
 
         downloadJsonBtn.addEventListener('click', () => {
-            if (!currentJsonData) { alert("다운로드할 데이터가 없습니다!"); return; }
-            if (editingMessageIndex !== null) { alert("대사 수정(저장/취소)을 완료한 뒤 다운로드해주세요."); return; }
+            if (!currentJsonData) return alert("다운로드할 데이터가 없습니다!");
+            if (editingMessageIndex !== null) return alert("대사 수정(저장/취소)을 완료한 뒤 다운로드해주세요.");
 
             const jsonString = JSON.stringify(currentJsonData, null, 2);
             const blob = new Blob([jsonString], { type: "application/json" });
@@ -547,12 +599,8 @@
         }
 
         downloadBtn.addEventListener('click', async () => {
-            if (!currentJsonData) { alert("JSON 파일을 업로드해주세요!"); return; }
-
-            if (editingMessageIndex !== null) {
-                alert("현재 수정 중인 대사가 있습니다. '저장' 또는 '취소'를 누른 뒤 다운로드해주세요.");
-                return;
-            }
+            if (!currentJsonData) return alert("JSON 파일을 업로드해주세요!");
+            if (editingMessageIndex !== null) return alert("현재 수정 중인 대사가 있습니다. '저장' 또는 '취소'를 누른 뒤 다운로드해주세요.");
 
             loadingScreen.style.display = 'flex';
             downloadBtn.disabled = true;
@@ -588,7 +636,7 @@
                 let match;
                 let imageUrls =[];
                 while ((match = imgRegex.exec(bodyHtml)) !== null) { imageUrls.push(match[1]); }
-                imageUrls = [...new Set(imageUrls)]; 
+                imageUrls =[...new Set(imageUrls)]; 
 
                 let imageMap = {};
                 let completedCount = 0; 
@@ -616,6 +664,12 @@
                 for (const[original, local] of Object.entries(imageMap)) {
                     bodyHtml = bodyHtml.split(original).join(local);
                 }
+
+                // ==========================================
+                // [수정된 부분 3] UUID 랜덤 생성 로직 패치 적용
+                // ==========================================
+                const uniqueId = crypto.randomUUID ? crypto.randomUUID() : 'fox-epub-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+                // ==========================================
 
                 zip.file("mimetype", "application/epub+zip", {compression: "STORE"});
                 zip.folder("META-INF").file("container.xml", `<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
@@ -645,7 +699,8 @@ img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em a
                     coverItem = `<item id="cover-image" href="cover.${ext}" media-type="${mimeType}"/>`;
                 }
 
-                oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">\n    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>\n        <dc:identifier id="pub-id">urn:uuid:fox-epub-12345</dc:identifier>\n        ${coverMeta}\n    </metadata>\n    <manifest>\n        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n        <item id="chap1" href="chap_01.xhtml" media-type="application/xhtml+xml"/>\n        <item id="css" href="style/default.css" media-type="text/css"/>\n        ${manifestItems}\n        ${coverItem}\n    </manifest>\n    <spine><itemref idref="chap1"/></spine>\n</package>`);
+                // UUID를 content.opf 에 동적 반영
+                oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">\n    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>\n        <dc:identifier id="pub-id">urn:uuid:${uniqueId}</dc:identifier>\n        ${coverMeta}\n    </metadata>\n    <manifest>\n        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n        <item id="chap1" href="chap_01.xhtml" media-type="application/xhtml+xml"/>\n        <item id="css" href="style/default.css" media-type="text/css"/>\n        ${manifestItems}\n        ${coverItem}\n    </manifest>\n    <spine><itemref idref="chap1"/></spine>\n</package>`);
 
                 const content = await zip.generateAsync({type:"blob", mimeType: "application/epub+zip"});
                 saveAs(content, title + ".epub");
@@ -658,7 +713,12 @@ img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em a
             }
         });
 
-        window.onload = loadSettings;
+        // 시작 시 데이터베이스 연동 후 로컬 설정 로드
+        window.onload = async () => {
+            try { await initDB(); } 
+            catch(e) { console.warn("데이터베이스(IndexedDB) 초기화 실패: 저장 기능이 제한될 수 있습니다."); }
+            loadSettings();
+        };
     </script>
 </body>
 </html>
