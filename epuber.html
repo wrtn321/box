@@ -608,7 +608,7 @@
         /**
          * fetch 에 타임아웃을 걸어주는 래퍼
          */
-        function fetchWithTimeout(url, timeoutMs = 10000) {
+        function fetchWithTimeout(url, timeoutMs = 30000) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeoutMs);
             return fetch(url, { signal: controller.signal })
