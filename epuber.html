@@ -21,8 +21,38 @@
         .control-group { margin-bottom: 25px; }
         .control-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #353b48; }
         input[type="text"] { width: 100%; padding: 10px; border: 1px solid #dcdde1; border-radius: 4px; box-sizing: border-box; }
-        input[type="file"] { display: block; margin-top: 5px; }
         
+        /* [수정] 파일 input 숨기고 커스텀 드롭존으로 교체 */
+        input[type="file"] { display: none; }
+
+        .drop-zone {
+            border: 2px dashed #dcdde1;
+            border-radius: 6px;
+            padding: 14px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+            background: #fafafa;
+            font-size: 0.9rem;
+            color: #7f8fa6;
+            margin-top: 5px;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #fbc531;
+            background: #fffbef;
+            color: #2f3640;
+        }
+        .drop-zone .file-label {
+            display: block;
+            font-size: 0.85rem;
+            margin-top: 4px;
+            color: #2f3640;
+            font-weight: bold;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         #cover-preview-img { max-width: 150px; max-height: 200px; display: none; margin-top: 10px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
 
         .hud-item { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-start; }
@@ -102,11 +132,27 @@
 
     <div id="control-pane">
         <h2 style="margin-top: 0;">EPUB 설정</h2>
+
         <div class="control-group">
             <label>1. 데이터 불러오기 (JSON, TXT)</label>
             <input type="file" id="json-file" accept=".json,.txt">
+            <!-- [수정] 커스텀 드롭존 -->
+            <div class="drop-zone" id="json-drop-zone">
+                📂 클릭하거나 파일을 여기에 끌어다 놓으세요
+                <span class="file-label" id="json-file-label"></span>
+            </div>
         </div>
-        <div class="control-group"><label>2. 표지 이미지 (선택)</label><input type="file" id="cover-file" accept="image/*"><img id="cover-preview-img" src="" alt="표지 미리보기"></div>
+
+        <div class="control-group">
+            <label>2. 표지 이미지 (선택)</label>
+            <input type="file" id="cover-file" accept="image/*">
+            <div class="drop-zone" id="cover-drop-zone">
+                🖼️ 클릭하거나 이미지를 여기에 끌어다 놓으세요
+                <span class="file-label" id="cover-file-label"></span>
+            </div>
+            <img id="cover-preview-img" src="" alt="표지 미리보기">
+        </div>
+
         <div class="control-group"><label>3. 책 정보</label><input type="text" id="book-title" placeholder="책 제목" style="margin-bottom: 10px;"><input type="text" id="book-author" placeholder="작가 이름"></div>
         <div class="control-group">
             <label>4. HUD(상태창) 패턴 <button id="add-hud-btn" class="btn-small btn-add">+ 추가</button></label>
@@ -121,21 +167,21 @@
         
         <button class="btn" id="download-btn">✨ EPUB 다운로드 ✨</button>
         
-        <p style="font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; margin-top: 15px; color:#2f3640;">💾 수정된 데이터 원본 보존하기</p>
+        <p style="font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; margin-top: 15px; color:#2f3640;">💾 수정된 데이터 다운로드</p>
         <div class="export-container">
             <button class="btn-export" id="download-json-btn">JSON</button>
             <button class="btn-export" id="download-txt-btn">TXT</button>
         </div>
-        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 10px;">※ 설정만 자동 저장되며, 대사 데이터는 별도로 다운받아야 합니다.</p>
+        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 10px;">※ 새로고침 시, 실시간 미리보기의 내용이 사라집니다.</p>
     </div>
 
     <div id="preview-pane">
         <div class="pane-title-container">
-            <div class="pane-title">📖 실시간 미리보기 (수정/삭제 가능)</div>
+            <div class="pane-title">📖 실시간 미리보기 (수정 후 저장권장)</div>
             <div class="dropdown-container">
                 <button class="btn-toggle" id="save-menu-toggle" title="저장소 메뉴">⋮</button>
                 <div id="save-dropdown" class="dropdown-menu">
-                    <div class="dropdown-header" id="btn-save-new">💾 저장소에 새로 만들기</div>
+                    <div class="dropdown-header" id="btn-save-new">💾 임시저장</div>
                     <div id="save-list"></div>
                 </div>
             </div>
@@ -163,54 +209,68 @@
             req.onerror = (e) => reject(e.target.error);
         });
 
-        const dbPut    = (s, d) => new Promise((res, rej) => { const t = idb.transaction(s,'readwrite'); const r = t.objectStore(s).put(d); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
-        const dbGet    = (s, id) => new Promise((res, rej) => { const t = idb.transaction(s,'readonly'); const r = t.objectStore(s).get(id); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
-        const dbGetAll = (s) => new Promise((res, rej) => { const t = idb.transaction(s,'readonly'); const r = t.objectStore(s).getAll(); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
-        const dbDelete = (s, id) => new Promise((res, rej) => { const t = idb.transaction(s,'readwrite'); const r = t.objectStore(s).delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); });
+        const dbPut    = (s, d)  => new Promise((res, rej) => { const t = idb.transaction(s,'readwrite'); const r = t.objectStore(s).put(d);    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+        const dbGet    = (s, id) => new Promise((res, rej) => { const t = idb.transaction(s,'readonly');  const r = t.objectStore(s).get(id);    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+        const dbGetAll = (s)     => new Promise((res, rej) => { const t = idb.transaction(s,'readonly');  const r = t.objectStore(s).getAll();   r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+        const dbDelete = (s, id) => new Promise((res, rej) => { const t = idb.transaction(s,'readwrite'); const r = t.objectStore(s).delete(id); r.onsuccess=()=>res();         r.onerror=()=>rej(r.error); });
 
         // ─────────────────────────────────────────────
         // 상수 / 상태
         // ─────────────────────────────────────────────
         const MY_PROXY_URL = "https://proxy.wrtn321.workers.dev";
 
-        let currentJsonData    = null;
-        let coverFileContent   = null;
-        let coverFileName      = null;
+        let currentJsonData     = null;
+        let coverFileContent    = null;
+        let coverFileName       = null;
         let editingMessageIndex = null;
-        let isDirty            = false; // [수정] 미저장 변경 추적
+        let isDirty             = false;
 
         // ─────────────────────────────────────────────
         // DOM 레퍼런스
         // ─────────────────────────────────────────────
-        const jsonInput        = document.getElementById('json-file');
-        const coverInput       = document.getElementById('cover-file');
-        const coverPreviewImg  = document.getElementById('cover-preview-img');
-        const titleInput       = document.getElementById('book-title');
-        const authorInput      = document.getElementById('book-author');
-        const removeImgCheck   = document.getElementById('remove-img');
-        const userDividerCheck = document.getElementById('user-divider');
-        const previewContent   = document.getElementById('preview-content');
-        const downloadBtn      = document.getElementById('download-btn');
-        const btnJson          = document.getElementById('download-json-btn');
-        const btnTxt           = document.getElementById('download-txt-btn');
-        const addHudBtn        = document.getElementById('add-hud-btn');
-        const hudContainer     = document.getElementById('hud-container');
-        const loadingScreen    = document.getElementById('loading-screen');
-        const progressText     = document.getElementById('progress-text');
-        const dropdownToggle   = document.getElementById('save-menu-toggle');
-        const dropdownMenu     = document.getElementById('save-dropdown');
-        const saveNewBtn       = document.getElementById('btn-save-new');
-        const saveListContainer= document.getElementById('save-list');
+        const jsonInput         = document.getElementById('json-file');
+        const coverInput        = document.getElementById('cover-file');
+        const coverPreviewImg   = document.getElementById('cover-preview-img');
+        const titleInput        = document.getElementById('book-title');
+        const authorInput       = document.getElementById('book-author');
+        const removeImgCheck    = document.getElementById('remove-img');
+        const userDividerCheck  = document.getElementById('user-divider');
+        const previewContent    = document.getElementById('preview-content');
+        const downloadBtn       = document.getElementById('download-btn');
+        const btnJson           = document.getElementById('download-json-btn');
+        const btnTxt            = document.getElementById('download-txt-btn');
+        const addHudBtn         = document.getElementById('add-hud-btn');
+        const hudContainer      = document.getElementById('hud-container');
+        const loadingScreen     = document.getElementById('loading-screen');
+        const progressText      = document.getElementById('progress-text');
+        const dropdownToggle    = document.getElementById('save-menu-toggle');
+        const dropdownMenu      = document.getElementById('save-dropdown');
+        const saveNewBtn        = document.getElementById('btn-save-new');
+        const saveListContainer = document.getElementById('save-list');
+
+        const jsonDropZone      = document.getElementById('json-drop-zone');
+        const jsonFileLabel     = document.getElementById('json-file-label');
+        const coverDropZone     = document.getElementById('cover-drop-zone');
+        const coverFileLabel    = document.getElementById('cover-file-label');
 
         // ─────────────────────────────────────────────
-        // [수정] 페이지 이탈 경고
+        // 페이지 이탈 경고
         // ─────────────────────────────────────────────
         window.addEventListener('beforeunload', (e) => {
-            if (isDirty && currentJsonData) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
+            if (isDirty && currentJsonData) { e.preventDefault(); e.returnValue = ''; }
         });
+
+        // ─────────────────────────────────────────────
+        // [수정] title / author XML escape
+        // ─────────────────────────────────────────────
+        function escapeXml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
 
         // ─────────────────────────────────────────────
         // 설정 저장/불러오기
@@ -220,12 +280,7 @@
                 value:   item.querySelector('.hud-input').value,
                 checked: item.querySelector('.hud-checkbox').checked
             })).filter(h => h.value.trim() !== '');
-
-            localStorage.setItem('epubStudioSettings', JSON.stringify({
-                huds,
-                removeImg:  removeImgCheck.checked,
-                useDivider: userDividerCheck.checked
-            }));
+            localStorage.setItem('epubStudioSettings', JSON.stringify({ huds, removeImg: removeImgCheck.checked, useDivider: userDividerCheck.checked }));
         }
 
         function loadSettings() {
@@ -235,134 +290,116 @@
                 removeImgCheck.checked   = s.removeImg  !== undefined ? s.removeImg  : false;
                 userDividerCheck.checked = s.useDivider !== undefined ? s.useDivider : true;
                 hudContainer.innerHTML = '';
-                if (s.huds && s.huds.length > 0) {
-                    s.huds.forEach(h => addHudField(typeof h === 'string' ? h : h.value, typeof h === 'string' ? true : h.checked));
-                } else { addHudField('', true); }
+                if (s.huds && s.huds.length > 0) s.huds.forEach(h => addHudField(typeof h==='string'?h:h.value, typeof h==='string'?true:h.checked));
+                else addHudField('', true);
             } else { addHudField('', true); }
-
-            titleInput.value  = '';
-            authorInput.value = '';
-            currentJsonData   = null;
+            titleInput.value = ''; authorInput.value = ''; currentJsonData = null;
         }
 
         function addHudField(value = '', isChecked = true) {
-            const div  = document.createElement('div');
-            div.className = 'hud-item';
-
-            const chk = document.createElement('input');
-            chk.type = 'checkbox'; chk.className = 'hud-checkbox'; chk.checked = isChecked;
+            const div = document.createElement('div'); div.className = 'hud-item';
+            const chk = document.createElement('input'); chk.type='checkbox'; chk.className='hud-checkbox'; chk.checked=isChecked;
             chk.addEventListener('change', () => { saveSettings(); updatePreview(); });
-
-            const input = document.createElement('textarea');
-            input.className = 'hud-input'; input.rows = 2; input.value = value;
-            input.placeholder = "예: **[ $$$ ]**";
+            const input = document.createElement('textarea'); input.className='hud-input'; input.rows=2; input.value=value; input.placeholder="예: **[ $$$ ]**";
             input.addEventListener('input', () => { saveSettings(); updatePreview(); });
-
-            const rmBtn = document.createElement('button');
-            rmBtn.className = 'btn-small btn-remove'; rmBtn.textContent = 'X';
+            const rmBtn = document.createElement('button'); rmBtn.className='btn-small btn-remove'; rmBtn.textContent='X';
             rmBtn.onclick = () => { div.remove(); saveSettings(); updatePreview(); };
-
             div.appendChild(chk); div.appendChild(input); div.appendChild(rmBtn);
-            hudContainer.appendChild(div);
-            saveSettings(); updatePreview();
+            hudContainer.appendChild(div); saveSettings(); updatePreview();
         }
 
         addHudBtn.addEventListener('click', () => addHudField('', true));
-
-        [titleInput, authorInput, removeImgCheck, userDividerCheck].forEach(el => {
-            el.addEventListener('input', () => { saveSettings(); updatePreview(); });
-        });
-        titleInput.addEventListener('input', () => {
-            if (currentJsonData) currentJsonData.title = titleInput.value;
-        });
-        authorInput.addEventListener('input', () => {
-            if (currentJsonData) {
-                if (!currentJsonData.userPersona) currentJsonData.userPersona = {};
-                currentJsonData.userPersona.name = authorInput.value;
-            }
-        });
+        [titleInput, authorInput, removeImgCheck, userDividerCheck].forEach(el => el.addEventListener('input', () => { saveSettings(); updatePreview(); }));
+        titleInput.addEventListener('input',  () => { if (currentJsonData) currentJsonData.title = titleInput.value; });
+        authorInput.addEventListener('input', () => { if (currentJsonData) { if (!currentJsonData.userPersona) currentJsonData.userPersona = {}; currentJsonData.userPersona.name = authorInput.value; } });
 
         // ─────────────────────────────────────────────
-        // 파일 업로드
+        // [수정] 드롭존 공통 헬퍼
         // ─────────────────────────────────────────────
-        jsonInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+        function setupDropZone(dropZone, fileInput, onFile) {
+            // 클릭 → input 열기
+            dropZone.addEventListener('click', () => fileInput.click());
 
-            // [수정] 미저장 데이터 있을 때 경고
+            // drag & drop
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file) onFile(file);
+            });
+
+            // 일반 파일 선택
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) onFile(file);
+                fileInput.value = ''; // 같은 파일 재업로드 허용
+            });
+        }
+
+        // ─────────────────────────────────────────────
+        // JSON / TXT 파일 처리
+        // ─────────────────────────────────────────────
+        function handleJsonFile(file) {
             if (isDirty && currentJsonData) {
-                if (!confirm("현재 작업 내용이 저장되지 않았습니다.\n새 파일을 불러오면 덮어씌워집니다. 계속하시겠습니까?")) {
-                    e.target.value = '';
-                    return;
-                }
+                if (!confirm("현재 작업 내용이 저장되지 않았습니다.\n새 파일을 불러오면 덮어씌워집니다. 계속하시겠습니까?")) return;
             }
 
             const ext    = file.name.split('.').pop().toLowerCase();
             const reader = new FileReader();
-
             reader.onload = function(event) {
                 const text = event.target.result;
                 try {
                     if (ext === 'json') {
                         currentJsonData = JSON.parse(text);
                     } else if (ext === 'txt') {
-                        let messages = [];
-                        let title    = file.name.replace('.txt', '');
-                        let author   = 'Unknown';
-
+                        let messages = [], title = file.name.replace('.txt',''), author = 'Unknown';
                         if (text.includes('[User]') || text.includes('[Assistant]')) {
-                            const titleMatch  = text.match(/^제목:\s*(.*)/m);
-                            if (titleMatch)  title  = titleMatch[1].trim();
-                            const authorMatch = text.match(/^작가:\s*(.*)/m);
-                            if (authorMatch) author = authorMatch[1].trim();
-
-                            const blocks = text.split(/(?=\[(?:User|Assistant)\])/);
-                            blocks.forEach(block => {
-                                const isUser      = block.startsWith('[User]');
-                                const isAssistant = block.startsWith('[Assistant]');
-                                if (isUser || isAssistant) {
-                                    let content = block.replace(/^\[(?:User|Assistant)\]\n/, '').trim();
-                                    if (content) messages.push({ role: isUser ? 'user' : 'assistant', content });
-                                }
+                            const tm = text.match(/^제목:\s*(.*)/m); if (tm) title  = tm[1].trim();
+                            const am = text.match(/^작가:\s*(.*)/m); if (am) author = am[1].trim();
+                            text.split(/(?=\[(?:User|Assistant)\])/).forEach(block => {
+                                const isUser = block.startsWith('[User]'), isAss = block.startsWith('[Assistant]');
+                                if (isUser || isAss) { let c = block.replace(/^\[(?:User|Assistant)\]\n/,'').trim(); if(c) messages.push({role:isUser?'user':'assistant',content:c}); }
                             });
-                            currentJsonData = { title, userPersona: { name: author }, messages };
+                            currentJsonData = { title, userPersona:{name:author}, messages };
                         } else {
-                            currentJsonData = { title, messages: [{ role: 'assistant', content: text.trim() }] };
+                            currentJsonData = { title, messages:[{role:'assistant',content:text.trim()}] };
                         }
                     }
-
                     titleInput.value  = currentJsonData.title || '제목 없음';
                     authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || 'Unknown';
-                    isDirty = false; // 새로 불러왔으니 초기화
+                    jsonFileLabel.textContent = file.name;
+                    isDirty = false;
                     updatePreview();
-                } catch (err) { alert("파일을 읽는 중 오류가 발생했습니다!"); }
-                jsonInput.value = '';
+                } catch(err) { alert("파일을 읽는 중 오류가 발생했습니다!"); }
             };
             reader.readAsText(file);
-        });
+        }
 
-        coverInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) { coverPreviewImg.style.display = 'none'; coverFileContent = null; return; }
+        // ─────────────────────────────────────────────
+        // 표지 이미지 파일 처리
+        // ─────────────────────────────────────────────
+        function handleCoverFile(file) {
             coverFileName = file.name;
             coverPreviewImg.src = URL.createObjectURL(file);
             coverPreviewImg.style.display = 'block';
-
+            coverFileLabel.textContent = file.name;
             const reader = new FileReader();
-            reader.onload = (event) => { coverFileContent = event.target.result; };
+            reader.onload = (e) => { coverFileContent = e.target.result; };
             reader.readAsArrayBuffer(file);
-        });
+        }
+
+        setupDropZone(jsonDropZone,  jsonInput,  handleJsonFile);
+        setupDropZone(coverDropZone, coverInput, handleCoverFile);
 
         // ─────────────────────────────────────────────
         // 유틸
         // ─────────────────────────────────────────────
         function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
-        // [수정] EPUB 생성 중엔 미리보기 수정도 막도록 전체 잠금
         function toggleUIControls(disabled) {
-            document.querySelectorAll(
-                '#control-pane input, #control-pane button, .hud-input, .hud-checkbox, #preview-pane button'
-            ).forEach(el => el.disabled = disabled);
+            document.querySelectorAll('#control-pane input, #control-pane button, .hud-input, .hud-checkbox, #preview-pane button').forEach(el => el.disabled = disabled);
             dropdownToggle.disabled = disabled;
         }
 
@@ -381,48 +418,39 @@
                 .map(item => item.querySelector('.hud-input').value.trim())
                 .filter(v => v !== '');
 
-            // HUD 정규식 빌드 (원본과 동일 방식 유지)
             let hudRegexes = hudPatterns.map(pattern => {
-                let escapedPattern = pattern.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const parts   = escapedPattern.split('$$$');
-                const escaped = parts.map(escapeRegExp);
-                return new RegExp(escaped.join('[\\s\\S]*?') + '\\n?', 'g');
+                let ep = pattern.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                return new RegExp(ep.split('$$$').map(escapeRegExp).join('[\\s\\S]*?') + '\\n?', 'g');
             });
 
             messages.forEach((msg, index) => {
                 let text = msg.content || '';
                 const role = msg.role;
 
-                text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                text = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 text = text.split('\n').map(line => line.trimEnd()).join('\n');
 
                 if (removeImgCheck.checked) text = text.replace(/!\[(.*?)\]\((.*?)\)\n?/g, '');
                 else text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img class="content-img" src="$2" alt="$1" />');
 
                 hudRegexes.forEach(regex => { text = text.replace(regex, ''); });
-                text = text.trim();
-                text = text.replace(/\n{3,}/g, '\n\n');
-
+                text = text.trim().replace(/\n{3,}/g, '\n\n');
                 if (!text) return;
 
-                text = text.replace(/^(#{1,6})\s+(.*)$/gm, (m, hashes, content) => `<h${hashes.length}>${content}</h${hashes.length}>`);
+                text = text.replace(/^(#{1,6})\s+(.*)$/gm, (m, h, c) => `<h${h.length}>${c}</h${h.length}>`);
                 text = text.replace(/\*\*([^\n]+?)\*\*/g, '<span class="bold">$1</span>');
                 text = text.replace(/\*([^\n]+?)\*/g,   '<span class="italic">$1</span>');
                 text = text.replace(/\n/g, '<br/>');
-                text = text.replace(/(?:<br\/>\s*)*(<img[^>]+>)(?:\s*<br\/>)*/g, (m, imgTag, offset) => offset === 0 ? imgTag : '<br/>' + imgTag);
-                text = text.replace(/(<\/h[1-6]>)<br\/>/g, '$1');
-                text = text.replace(/<br\/>(<h[1-6]>)/g, '$1');
+                text = text.replace(/(?:<br\/>\s*)*(<img[^>]+>)(?:\s*<br\/>)*/g, (m, t, o) => o===0?t:'<br/>'+t);
+                text = text.replace(/(<\/h[1-6]>)<br\/>/g, '$1').replace(/<br\/>(<h[1-6]>)/g, '$1');
 
                 let blockHtml = '';
-                if (role === 'assistant') {
-                    blockHtml += `<p>${text}</p>\n`;
-                } else if (role === 'user') {
+                if (role === 'assistant') { blockHtml += `<p>${text}</p>\n`; }
+                else if (role === 'user') {
                     if (userDividerCheck.checked) blockHtml += `<hr class="user-divider"/>\n`;
                     blockHtml += `<p class="user-text">${text}</p>\n`;
                     if (userDividerCheck.checked) blockHtml += `<hr class="user-divider"/>\n`;
-                } else {
-                    blockHtml += `<p>${text}</p>\n`;
-                }
+                } else { blockHtml += `<p>${text}</p>\n`; }
 
                 html += `
                 <div class="msg-block" id="msg-block-${index}">
@@ -438,189 +466,108 @@
         }
 
         window.deleteMessage = function(index) {
-            if (confirm("이 대사를 삭제하시겠습니까?")) {
-                currentJsonData.messages.splice(index, 1);
-                isDirty = true;
-                updatePreview();
-            }
+            if (confirm("이 대사를 삭제하시겠습니까?")) { currentJsonData.messages.splice(index,1); isDirty=true; updatePreview(); }
         };
 
         window.editMessage = function(index) {
             if (editingMessageIndex !== null) return alert("먼저 수정 중인 대사를 저장하거나 취소해주세요!");
-            editingMessageIndex = index;
-            toggleUIControls(true);
-
-            const block      = document.getElementById(`msg-block-${index}`);
+            editingMessageIndex = index; toggleUIControls(true);
+            const block = document.getElementById(`msg-block-${index}`);
             const contentDiv = block.querySelector('.msg-content');
-            const controlsDiv= block.querySelector('.msg-controls');
-            const rawText    = currentJsonData.messages[index].content;
-            const previewPane= document.getElementById('preview-pane');
-
+            const controlsDiv = block.querySelector('.msg-controls');
+            const rawText = currentJsonData.messages[index].content;
+            const previewPane = document.getElementById('preview-pane');
             contentDiv.innerHTML = `<textarea class="edit-textarea" id="edit-text-${index}">${rawText}</textarea>`;
             const textarea = document.getElementById(`edit-text-${index}`);
-
-            setTimeout(() => {
-                const s = previewPane.scrollTop;
-                textarea.style.height = 'auto';
-                textarea.style.height = (textarea.scrollHeight + 5) + 'px';
-                previewPane.scrollTop = s;
-            }, 0);
-
-            textarea.addEventListener('input', function() {
-                const s = previewPane.scrollTop;
-                this.style.height = 'auto';
-                this.style.height = this.scrollHeight + 'px';
-                previewPane.scrollTop = s;
-            });
-
+            setTimeout(() => { const s=previewPane.scrollTop; textarea.style.height='auto'; textarea.style.height=(textarea.scrollHeight+5)+'px'; previewPane.scrollTop=s; },0);
+            textarea.addEventListener('input', function() { const s=previewPane.scrollTop; this.style.height='auto'; this.style.height=this.scrollHeight+'px'; previewPane.scrollTop=s; });
             controlsDiv.innerHTML = `<button class="btn-small btn-add" style="float:none;" onclick="saveMessage(${index})">저장</button><button class="btn-small btn-remove" onclick="cancelEdit()">취소</button>`;
-            controlsDiv.querySelectorAll('button').forEach(btn => btn.disabled = false);
+            controlsDiv.querySelectorAll('button').forEach(btn => btn.disabled=false);
         };
 
         window.saveMessage = function(index) {
             const textarea = document.getElementById(`edit-text-${index}`);
             if (textarea) currentJsonData.messages[index].content = textarea.value;
-            editingMessageIndex = null;
-            isDirty = true;
-            toggleUIControls(false);
-            updatePreview();
+            editingMessageIndex=null; isDirty=true; toggleUIControls(false); updatePreview();
         };
 
-        window.cancelEdit = function() {
-            editingMessageIndex = null;
-            toggleUIControls(false);
-            updatePreview();
-        };
+        window.cancelEdit = function() { editingMessageIndex=null; toggleUIControls(false); updatePreview(); };
 
         // ─────────────────────────────────────────────
-        // 저장소 (드롭다운)
+        // 저장소
         // ─────────────────────────────────────────────
         async function renderSaveList() {
             saveListContainer.innerHTML = '';
             try {
                 let saves = await dbGetAll('saves');
-                if (saves.length === 0) {
-                    saveListContainer.innerHTML = '<div style="padding:15px;text-align:center;color:#999;font-size:0.85rem;">저장된 항목이 없습니다.</div>';
-                    return;
-                }
-                saves.sort((a, b) => b.id - a.id);
+                if (saves.length===0) { saveListContainer.innerHTML='<div style="padding:15px;text-align:center;color:#999;font-size:0.85rem;">저장된 항목이 없습니다.</div>'; return; }
+                saves.sort((a,b)=>b.id-a.id);
                 saves.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'save-item';
-                    div.innerHTML = `
-                        <div class="save-title-text" title="${item.title}">${item.title}</div>
-                        <div class="save-actions">
-                            <button class="icon-btn" title="이름 변경" onclick="renameSaveDB(${item.id},event)">✏️</button>
-                            <button class="icon-btn" title="삭제"     onclick="deleteSaveDB(${item.id},event)">❌</button>
-                        </div>`;
+                    const div = document.createElement('div'); div.className='save-item';
+                    div.innerHTML=`<div class="save-title-text" title="${item.title}">${item.title}</div><div class="save-actions"><button class="icon-btn" title="이름 변경" onclick="renameSaveDB(${item.id},event)">✏️</button><button class="icon-btn" title="삭제" onclick="deleteSaveDB(${item.id},event)">❌</button></div>`;
                     div.onclick = () => loadSaveDB(item.id);
                     saveListContainer.appendChild(div);
                 });
             } catch(e) { console.error(e); }
         }
 
-        dropdownToggle.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            dropdownMenu.classList.toggle('show');
-            if (dropdownMenu.classList.contains('show')) await renderSaveList();
-        });
+        dropdownToggle.addEventListener('click', async (e) => { e.stopPropagation(); dropdownMenu.classList.toggle('show'); if (dropdownMenu.classList.contains('show')) await renderSaveList(); });
         document.addEventListener('click', () => dropdownMenu.classList.remove('show'));
         dropdownMenu.addEventListener('click', (e) => e.stopPropagation());
 
         saveNewBtn.addEventListener('click', async () => {
-            if (!currentJsonData) return alert("저장할 데이터가 없습니다. 파일을 먼저 업로드하세요.");
-            let defaultName = (currentJsonData.title || "제목 없음") + " (" + new Date().toLocaleTimeString('ko-KR', {hour12:false,hour:'2-digit',minute:'2-digit'}) + ")";
-            let name = prompt("저장소에 보관할 이름을 입력하세요:", defaultName);
-            if (name && name.trim() !== "") {
-                try {
-                    await dbPut('saves', { id: Date.now(), title: name, data: currentJsonData });
-                    isDirty = false;
-                    await renderSaveList();
-                    alert("성공적으로 저장되었습니다! 용량 걱정 없이 보관됩니다.");
-                } catch(e) { alert("데이터베이스 저장에 실패했습니다."); }
+            if (!currentJsonData) return alert("저장할 데이터가 없습니다.");
+            let name = prompt("저장소에 보관할 이름을 입력하세요:", (currentJsonData.title||"제목 없음")+" ("+new Date().toLocaleTimeString('ko-KR',{hour12:false,hour:'2-digit',minute:'2-digit'})+")");
+            if (name && name.trim()!=="") {
+                try { await dbPut('saves',{id:Date.now(),title:name,data:currentJsonData}); isDirty=false; await renderSaveList(); alert("성공적으로 저장되었습니다!"); }
+                catch(e) { alert("데이터베이스 저장에 실패했습니다."); }
             }
         });
 
         window.loadSaveDB = async function(id) {
             try {
-                const item = await dbGet('saves', id);
+                const item = await dbGet('saves',id);
                 if (item && confirm(`[${item.title}] 데이터를 불러오시겠습니까?\n(현재 화면의 내용은 덮어씌워집니다)`)) {
-                    currentJsonData   = item.data;
+                    currentJsonData = item.data;
                     titleInput.value  = currentJsonData.title || '';
                     authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || '';
+                    jsonFileLabel.textContent = ''; // [수정] 저장소에서 불러오면 파일명 초기화
                     jsonInput.value = '';
-                    isDirty = false;
-                    updatePreview();
-                    dropdownMenu.classList.remove('show');
+                    isDirty=false; updatePreview(); dropdownMenu.classList.remove('show');
                 }
             } catch(e) { alert("데이터를 불러오지 못했습니다."); }
         };
 
-        window.renameSaveDB = async function(id, e) {
+        window.renameSaveDB = async function(id,e) {
             e.stopPropagation();
-            try {
-                const item = await dbGet('saves', id);
-                if (!item) return;
-                let newName = prompt("새로운 이름을 입력하세요:", item.title);
-                if (newName && newName.trim() !== "") {
-                    item.title = newName.trim();
-                    await dbPut('saves', item);
-                    await renderSaveList();
-                }
-            } catch(e) { console.error(e); }
+            try { const item=await dbGet('saves',id); if(!item)return; let n=prompt("새로운 이름을 입력하세요:",item.title); if(n&&n.trim()!==""){item.title=n.trim();await dbPut('saves',item);await renderSaveList();} } catch(e){console.error(e);}
         };
 
-        window.deleteSaveDB = async function(id, e) {
+        window.deleteSaveDB = async function(id,e) {
             e.stopPropagation();
-            if (confirm("이 저장본을 완전히 삭제하시겠습니까?")) {
-                try { await dbDelete('saves', id); await renderSaveList(); }
-                catch(e) { alert("삭제 실패!"); }
-            }
+            if (confirm("이 저장본을 완전히 삭제하시겠습니까?")) { try{await dbDelete('saves',id);await renderSaveList();}catch(e){alert("삭제 실패!");} }
         };
 
         // ─────────────────────────────────────────────
-        // 내보내기 (JSON / TXT)
+        // 내보내기
         // ─────────────────────────────────────────────
         function checkExportReady() {
-            if (!currentJsonData)             { alert("다운로드할 데이터가 없습니다!");          return false; }
-            if (editingMessageIndex !== null)  { alert("대사 수정을 완료한 뒤 다운로드해주세요."); return false; }
+            if (!currentJsonData)            { alert("다운로드할 데이터가 없습니다!");          return false; }
+            if (editingMessageIndex !== null) { alert("대사 수정을 완료한 뒤 다운로드해주세요."); return false; }
             return true;
         }
-
-        btnJson.addEventListener('click', () => {
-            if (!checkExportReady()) return;
-            saveAs(new Blob([JSON.stringify(currentJsonData, null, 2)], {type:'application/json'}), (titleInput.value||"수정본")+"_수정됨.json");
-            isDirty = false;
-        });
-
-        btnTxt.addEventListener('click', () => {
-            if (!checkExportReady()) return;
-            let txt = `제목: ${titleInput.value||'제목 없음'}\n작가: ${authorInput.value||'Unknown'}\n\n`;
-            (currentJsonData.messages||[]).forEach(msg => {
-                txt += `[${msg.role==='user'?'User':'Assistant'}]\n${msg.content}\n\n`;
-            });
-            saveAs(new Blob([txt],{type:'text/plain;charset=utf-8'}), (titleInput.value||"수정본")+"_수정됨.txt");
-            isDirty = false;
-        });
+        btnJson.addEventListener('click', () => { if(!checkExportReady())return; saveAs(new Blob([JSON.stringify(currentJsonData,null,2)],{type:'application/json'}),(titleInput.value||"수정본")+"_수정됨.json"); isDirty=false; });
+        btnTxt.addEventListener('click',  () => { if(!checkExportReady())return; let txt=`제목: ${titleInput.value||'제목 없음'}\n작가: ${authorInput.value||'Unknown'}\n\n`; (currentJsonData.messages||[]).forEach(m=>{ txt+=`[${m.role==='user'?'User':'Assistant'}]\n${m.content}\n\n`; }); saveAs(new Blob([txt],{type:'text/plain;charset=utf-8'}),(titleInput.value||"수정본")+"_수정됨.txt"); isDirty=false; });
 
         // ─────────────────────────────────────────────
-        // [수정] 이미지 fetch: 타임아웃 추가 + 프록시 병렬 경쟁
+        // 이미지 fetch (타임아웃 30초)
         // ─────────────────────────────────────────────
-
-        /**
-         * fetch 에 타임아웃을 걸어주는 래퍼
-         */
         function fetchWithTimeout(url, timeoutMs = 30000) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeoutMs);
-            return fetch(url, { signal: controller.signal })
-                .finally(() => clearTimeout(timer));
+            return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
         }
 
-        /**
-         * 직접 → 내 프록시 → corsproxy.io → allorigins 순으로 시도
-         * 각 단계마다 10초 타임아웃
-         */
         async function fetchImageAsArrayBuffer(url) {
             const proxies = [
                 url,
@@ -628,56 +575,47 @@
                 'https://corsproxy.io/?' + encodeURIComponent(url),
                 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url)
             ];
-
             for (const proxyUrl of proxies) {
-                try {
-                    const r = await fetchWithTimeout(proxyUrl, 10000);
-                    if (r.ok) return await r.arrayBuffer();
-                } catch(e) { /* 타임아웃 또는 네트워크 오류 → 다음 프록시 시도 */ }
+                try { const r = await fetchWithTimeout(proxyUrl); if (r.ok) return await r.arrayBuffer(); } catch(e) {}
             }
             return null;
         }
 
         // ─────────────────────────────────────────────
-        // [수정] 이미지 확장자/MIME 추론 (확장자 없는 URL 방어)
+        // 이미지 확장자 / MIME 판별
         // ─────────────────────────────────────────────
         const VALID_IMG_EXTS = ['png','jpg','jpeg','gif','webp'];
 
-        /**
-         * URL 또는 ArrayBuffer(magic bytes) 로부터 확장자를 반환
-         * - URL 경로에서 확장자 추출 시도 (쿼리·해시 제거 후)
-         * - 인식 불가 시 ArrayBuffer 앞 4바이트로 magic bytes 판별
-         * - 최종 fallback: 'jpg'
-         */
         function guessExtFromUrl(url) {
             try {
-                const pathname = new URL(url).pathname; // 쿼리·해시 없는 경로
-                const lastSeg  = pathname.split('/').pop();  // 파일명 부분
+                const pathname = new URL(url).pathname;
+                const lastSeg  = pathname.split('/').pop();
                 const dotIdx   = lastSeg.lastIndexOf('.');
-                if (dotIdx !== -1) {
-                    const candidate = lastSeg.slice(dotIdx + 1).toLowerCase();
-                    if (VALID_IMG_EXTS.includes(candidate)) return candidate;
-                }
+                if (dotIdx !== -1) { const c = lastSeg.slice(dotIdx+1).toLowerCase(); if (VALID_IMG_EXTS.includes(c)) return c; }
             } catch(e) {}
-            return null; // 판별 실패
+            return null;
         }
 
         function guessExtFromBuffer(buffer) {
-            const bytes = new Uint8Array(buffer.slice(0, 12));
-            // PNG: 89 50 4E 47
-            if (bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4E && bytes[3]===0x47) return 'png';
-            // JPEG: FF D8 FF
-            if (bytes[0]===0xFF && bytes[1]===0xD8 && bytes[2]===0xFF) return 'jpg';
-            // GIF: 47 49 46 38
-            if (bytes[0]===0x47 && bytes[1]===0x49 && bytes[2]===0x46 && bytes[3]===0x38) return 'gif';
-            // WebP: 52 49 46 46 ?? ?? ?? ?? 57 45 42 50
-            if (bytes[0]===0x52 && bytes[1]===0x49 && bytes[2]===0x46 && bytes[3]===0x46 &&
-                bytes[8]===0x57 && bytes[9]===0x45 && bytes[10]===0x42 && bytes[11]===0x50) return 'webp';
-            return 'jpg'; // fallback
+            const b = new Uint8Array(buffer.slice(0,12));
+            if (b[0]===0x89&&b[1]===0x50&&b[2]===0x4E&&b[3]===0x47) return 'png';
+            if (b[0]===0xFF&&b[1]===0xD8&&b[2]===0xFF) return 'jpg';
+            if (b[0]===0x47&&b[1]===0x49&&b[2]===0x46&&b[3]===0x38) return 'gif';
+            if (b[0]===0x52&&b[1]===0x49&&b[2]===0x46&&b[3]===0x46&&b[8]===0x57&&b[9]===0x45&&b[10]===0x42&&b[11]===0x50) return 'webp';
+            return 'jpg';
         }
 
         function extToMime(ext) {
-            return { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp' }[ext] || 'image/jpeg';
+            return {png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp'}[ext]||'image/jpeg';
+        }
+
+        // ─────────────────────────────────────────────
+        // [수정] 이미지 hash 헬퍼 (SHA-256 앞 8자 = 파일명)
+        // ─────────────────────────────────────────────
+        async function bufferToHash(buffer) {
+            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+            const hashArray  = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 16);
         }
 
         // ─────────────────────────────────────────────
@@ -687,17 +625,16 @@
             if (!currentJsonData) return alert("데이터를 먼저 업로드해주세요!");
             if (editingMessageIndex !== null) return alert("현재 수정 중인 대사가 있습니다. '저장' 또는 '취소'를 누른 뒤 다운로드해주세요.");
 
-            // [수정] EPUB 생성 중 전체 UI 잠금
             loadingScreen.style.display = 'flex';
             toggleUIControls(true);
             progressText.innerText = "(계산 중...)";
 
             try {
                 const zip    = new JSZip();
-                const title  = titleInput.value  || "제목 없음";
-                const author = authorInput.value || "Unknown";
+                // [수정] title / author escape
+                const title  = escapeXml(titleInput.value  || "제목 없음");
+                const author = escapeXml(authorInput.value || "Unknown");
 
-                // 미리보기 복사 후 편집 컨트롤 제거
                 const previewClone = previewContent.cloneNode(true);
                 previewClone.querySelectorAll('.msg-controls').forEach(c => c.remove());
                 previewClone.querySelectorAll('.msg-block').forEach(block => {
@@ -708,51 +645,54 @@
 
                 let bodyHtml = previewClone.innerHTML;
 
-                const oebps        = zip.folder("OEBPS");
-                const imagesFolder = oebps.folder("images");
+                const oebps         = zip.folder("OEBPS");
+                const imagesFolder  = oebps.folder("images");
                 let   manifestItems = "";
 
-                // 이미지 URL 수집 (중복 제거)
-                const imgRegex  = /<img[^>]+src="([^">]+)"[^>]*>/g;
                 const imageUrls = [...new Set([...bodyHtml.matchAll(/<img[^>]+src="([^">]+)"[^>]*>/g)].map(m => m[1]))];
 
                 let completedCount = 0;
                 const totalCount   = imageUrls.length;
                 progressText.innerText = `(0 / ${totalCount})`;
 
-                // [수정] imageMap 키를 인코딩 정규화하여 교체 신뢰도 향상
-                const imageMap = new Map();
+                const imageMap    = new Map(); // originalUrl → local path
+                // [수정] hash → fileName 캐시 (중복 이미지 방지)
+                const hashToFile  = new Map();
 
                 for (let i = 0; i < imageUrls.length; i++) {
                     const originalUrl = imageUrls[i];
                     const buffer      = await fetchImageAsArrayBuffer(originalUrl);
 
                     if (buffer) {
-                        // [수정] URL 우선, 실패시 magic bytes로 확장자 판별
-                        const ext      = guessExtFromUrl(originalUrl) || guessExtFromBuffer(buffer);
-                        const mimeType = extToMime(ext);
-                        const fileName = `img_${i}.${ext}`;
+                        const hash = await bufferToHash(buffer);
 
-                        imagesFolder.file(fileName, buffer);
-                        manifestItems += `<item id="img_${i}" href="images/${fileName}" media-type="${mimeType}"/>\n`;
-                        imageMap.set(originalUrl, `images/${fileName}`);
+                        if (hashToFile.has(hash)) {
+                            // 이미 저장된 동일 이미지 → 재사용
+                            imageMap.set(originalUrl, hashToFile.get(hash));
+                        } else {
+                            const ext      = guessExtFromUrl(originalUrl) || guessExtFromBuffer(buffer);
+                            const mimeType = extToMime(ext);
+                            const fileName = `${hash}.${ext}`;
+
+                            imagesFolder.file(fileName, buffer);
+                            manifestItems += `<item id="img_${hash}" href="images/${fileName}" media-type="${mimeType}"/>\n`;
+                            hashToFile.set(hash, `images/${fileName}`);
+                            imageMap.set(originalUrl, `images/${fileName}`);
+                        }
                     }
 
                     completedCount++;
                     progressText.innerText = `(${completedCount} / ${totalCount})`;
                 }
 
-                // [수정] 단순 split/join 대신 escapeRegExp 활용한 안전한 전역 치환
                 for (const [original, local] of imageMap) {
                     bodyHtml = bodyHtml.split(original).join(local);
                 }
 
-                const uniqueId = crypto.randomUUID ? crypto.randomUUID() : 'epub-' + Date.now() + '-' + Math.floor(Math.random()*10000);
+                const uniqueId = crypto.randomUUID ? crypto.randomUUID() : 'epub-'+Date.now()+'-'+Math.floor(Math.random()*10000);
 
-                zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
-                zip.folder("META-INF").file("container.xml",
-                    `<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`
-                );
+                zip.file("mimetype", "application/epub+zip", { compression:"STORE" });
+                zip.folder("META-INF").file("container.xml", `<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
 
                 oebps.folder("style").file("default.css",
 `@namespace epub "http://www.idpf.org/2007/ops";
@@ -767,27 +707,21 @@ h1, h2, h3, h4, h5, h6 { margin: 0.5em 0; line-height: 1.3; }
 img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em auto 0.2em auto; }`
                 );
 
-                oebps.file("chap_01.xhtml",
-                    `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">\n<head><title>${title}</title><link rel="stylesheet" type="text/css" href="style/default.css"/></head>\n<body>${bodyHtml}</body>\n</html>`
-                );
-                oebps.file("nav.xhtml",
-                    `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n<head><title>Navigation</title></head>\n<body><nav epub:type="toc" id="toc"><h1>목차</h1><ol><li><a href="chap_01.xhtml">본문</a></li></ol></nav></body>\n</html>`
-                );
+                oebps.file("chap_01.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">\n<head><title>${title}</title><link rel="stylesheet" type="text/css" href="style/default.css"/></head>\n<body>${bodyHtml}</body>\n</html>`);
+                oebps.file("nav.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n<head><title>Navigation</title></head>\n<body><nav epub:type="toc" id="toc"><h1>목차</h1><ol><li><a href="chap_01.xhtml">본문</a></li></ol></nav></body>\n</html>`);
 
                 let coverMeta = "", coverItem = "";
                 if (coverFileContent) {
-                    const ext      = coverFileName.split('.').pop().toLowerCase();
-                    const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-                    oebps.file("cover." + ext, coverFileContent);
+                    const ext = coverFileName.split('.').pop().toLowerCase();
+                    const mimeType = ext==='png' ? 'image/png' : 'image/jpeg';
+                    oebps.file("cover."+ext, coverFileContent);
                     coverMeta = `<meta name="cover" content="cover-image"/>`;
                     coverItem = `<item id="cover-image" href="cover.${ext}" media-type="${mimeType}"/>`;
                 }
 
-                oebps.file("content.opf",
-                    `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">\n    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>\n        <dc:identifier id="pub-id">urn:uuid:${uniqueId}</dc:identifier>\n        ${coverMeta}\n    </metadata>\n    <manifest>\n        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n        <item id="chap1" href="chap_01.xhtml" media-type="application/xhtml+xml"/>\n        <item id="css" href="style/default.css" media-type="text/css"/>\n        ${manifestItems}\n        ${coverItem}\n    </manifest>\n    <spine><itemref idref="chap1"/></spine>\n</package>`
-                );
+                oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">\n    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>\n        <dc:identifier id="pub-id">urn:uuid:${uniqueId}</dc:identifier>\n        ${coverMeta}\n    </metadata>\n    <manifest>\n        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n        <item id="chap1" href="chap_01.xhtml" media-type="application/xhtml+xml"/>\n        <item id="css" href="style/default.css" media-type="text/css"/>\n        ${manifestItems}\n        ${coverItem}\n    </manifest>\n    <spine><itemref idref="chap1"/></spine>\n</package>`);
 
-                const content = await zip.generateAsync({ type: "blob", mimeType: "application/epub+zip" });
+                const content = await zip.generateAsync({ type:"blob", mimeType:"application/epub+zip" });
                 saveAs(content, title + ".epub");
                 isDirty = false;
 
@@ -803,8 +737,7 @@ img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em a
         // 초기화
         // ─────────────────────────────────────────────
         window.onload = async () => {
-            try { await initDB(); }
-            catch(e) { console.warn("IndexedDB 초기화 실패: 저장 기능이 제한될 수 있습니다."); }
+            try { await initDB(); } catch(e) { console.warn("IndexedDB 초기화 실패: 저장 기능이 제한될 수 있습니다."); }
             loadSettings();
         };
     </script>
