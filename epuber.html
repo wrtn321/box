@@ -82,37 +82,45 @@
         .btn-export { background-color: #7bed9f; font-size: 0.95rem; flex: 1; padding: 12px; margin: 0; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; color: #2f3640; }
         .btn-export:hover { background-color: #2ed573; }
 
-        /* C: 블록 왼쪽 핀 아이콘 */
+        /* C: 블록 왼쪽 상단 북마크 리본 */
         .msg-block {
             position: relative;
             border-radius: 6px;
-            padding: 10px 10px 10px 32px;
+            padding: 10px;
             margin-bottom: 15px;
             border: 1px solid transparent;
             transition: 0.2s;
+            overflow: visible;
         }
         .msg-block:hover { border: 1px dashed #dcdde1; background-color: #fcfcfc; }
-        .msg-block.is-pinned { border-left: 3px solid #fbc531 !important; padding-left: 30px; }
 
-        .pin-btn {
+        /* 리본: 왼쪽 상단 모서리에 붙는 삼각형 */
+        .pin-ribbon {
             position: absolute;
-            left: 6px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 18px 18px 0 0;
+            border-color: #e0e0e0 transparent transparent transparent;
+            border-radius: 6px 0 0 0;
             cursor: pointer;
-            font-size: 0.85rem;
-            line-height: 1;
-            padding: 3px;
-            border-radius: 3px;
             opacity: 0;
-            transition: opacity 0.2s, background 0.2s;
-            color: #ccc;
+            transition: opacity 0.15s, border-color 0.15s;
+            z-index: 4;
         }
-        .msg-block:hover .pin-btn { opacity: 1; }
-        .msg-block.is-pinned .pin-btn { opacity: 1; color: #fbc531; }
-        .pin-btn:hover { background: #fff3cd; color: #e1b12c !important; }
+        /* hover 시 살짝 보임 */
+        .msg-block:hover .pin-ribbon { opacity: 1; }
+        /* 핀이 꽂힌 상태 — 항상 노란색으로 보임 */
+        .msg-block.is-pinned .pin-ribbon {
+            opacity: 1;
+            border-color: #fbc531 transparent transparent transparent;
+        }
+        .pin-ribbon:hover {
+            border-color: #f0a500 transparent transparent transparent !important;
+            opacity: 1 !important;
+        }
 
         .msg-controls { display: flex; opacity: 0; transition: 0.2s; position: absolute; top: 5px; right: 5px; gap: 5px; z-index: 5; }
         .msg-block:hover .msg-controls { opacity: 1; }
@@ -195,8 +203,8 @@
             #preview-pane { padding: 10px; }
             #preview-content { padding: 15px; }
             .msg-controls { position: relative; opacity: 1; justify-content: flex-end; margin-top: 5px; top: 0; right: 0; }
-            .pin-btn { opacity: 0.4; }
-            .msg-block.is-pinned .pin-btn { opacity: 1; }
+            .pin-ribbon { opacity: 0.3; }
+            .msg-block.is-pinned .pin-ribbon { opacity: 1; }
             .save-actions { display: flex; }
         }
     </style>
@@ -582,7 +590,7 @@
                 const hasMarker = getMarkerAt(index);
                 html += `
                 <div class="msg-block ${hasMarker ? 'is-pinned' : ''}" id="msg-block-${index}">
-                    <button class="pin-btn" onclick="togglePinMarker(${index})" title="${hasMarker ? '챕터 마커 제거' : '여기에 챕터 마커 추가'}">📌</button>
+                    <div class="pin-ribbon" onclick="togglePinMarker(${index})" title="${hasMarker ? '챕터 마커 제거' : '여기에 챕터 마커 추가'}"></div>
                     ${hasMarker ? `
                     <div class="chapter-marker">
                         <span class="marker-icon">📖</span>
