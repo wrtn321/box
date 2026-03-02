@@ -13,16 +13,23 @@
         #control-pane { width: 450px; background-color: white; padding: 30px; box-shadow: 2px 0 10px rgba(0,0,0,0.05); overflow-y: auto; z-index: 10; flex-shrink: 0; }
         #preview-pane { flex: 1; background-color: #e1e2e6; padding: 20px; display: flex; flex-direction: column; overflow-y: auto; }
         
-        .pane-title-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        /* A: 상단바 sticky 고정 */
+        .pane-title-container {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 10px;
+            position: sticky; top: 0; z-index: 50;
+            background: #e1e2e6;
+            padding: 10px 0 10px 0;
+            margin-top: -10px;
+        }
         .pane-title { font-size: 1.2rem; font-weight: bold; color: #2f3640; margin: 0; }
-        
+
         #preview-content { flex: 1; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); line-height: 1.8; font-size: 15px; }
 
         .control-group { margin-bottom: 25px; }
         .control-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #353b48; }
         input[type="text"] { width: 100%; padding: 10px; border: 1px solid #dcdde1; border-radius: 4px; box-sizing: border-box; }
-        
-        /* [수정] 파일 input 숨기고 커스텀 드롭존으로 교체 */
+
         input[type="file"] { display: none; }
 
         .drop-zone {
@@ -58,7 +65,7 @@
         .hud-item { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-start; }
         .hud-checkbox { width: 18px; height: 18px; margin-top: 13px; cursor: pointer; flex-shrink: 0; }
         .hud-input { flex: 1; padding: 10px; border: 1px solid #dcdde1; border-radius: 4px; resize: vertical; box-sizing: border-box; font-family: inherit; min-height: 45px; }
-        
+
         .btn-small { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; color: white; }
         .btn-add { background-color: #7bed9f; color: #2f3640; float: right; font-size: 0.9rem;}
         .btn-add:hover { background-color: #2ed573; }
@@ -75,10 +82,64 @@
         .btn-export { background-color: #7bed9f; font-size: 0.95rem; flex: 1; padding: 12px; margin: 0; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; color: #2f3640; }
         .btn-export:hover { background-color: #2ed573; }
 
-        .msg-block { position: relative; border-radius: 6px; padding: 10px; margin-bottom: 15px; border: 1px solid transparent; transition: 0.2s; }
+        /* C: 블록 왼쪽 핀 아이콘 */
+        .msg-block {
+            position: relative;
+            border-radius: 6px;
+            padding: 10px 10px 10px 32px;
+            margin-bottom: 15px;
+            border: 1px solid transparent;
+            transition: 0.2s;
+        }
         .msg-block:hover { border: 1px dashed #dcdde1; background-color: #fcfcfc; }
+        .msg-block.is-pinned { border-left: 3px solid #fbc531 !important; padding-left: 30px; }
+
+        .pin-btn {
+            position: absolute;
+            left: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            line-height: 1;
+            padding: 3px;
+            border-radius: 3px;
+            opacity: 0;
+            transition: opacity 0.2s, background 0.2s;
+            color: #ccc;
+        }
+        .msg-block:hover .pin-btn { opacity: 1; }
+        .msg-block.is-pinned .pin-btn { opacity: 1; color: #fbc531; }
+        .pin-btn:hover { background: #fff3cd; color: #e1b12c !important; }
+
         .msg-controls { display: flex; opacity: 0; transition: 0.2s; position: absolute; top: 5px; right: 5px; gap: 5px; z-index: 5; }
         .msg-block:hover .msg-controls { opacity: 1; }
+
+        /* 목차 챕터 마커 */
+        .chapter-marker {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(90deg, #fff9e6, #fffdf5);
+            border-left: 4px solid #fbc531;
+            border-radius: 0 6px 6px 0;
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+            color: #7f5a00;
+            font-weight: bold;
+        }
+        .chapter-marker .marker-icon { font-size: 1rem; }
+        .chapter-marker .marker-title { flex: 1; }
+        .chapter-marker .marker-remove {
+            background: none; border: none; cursor: pointer;
+            color: #ccc; font-size: 1rem; padding: 0; line-height: 1;
+            transition: 0.2s;
+        }
+        .chapter-marker .marker-remove:hover { color: #ff4757; }
+        
         
         .edit-textarea { width: 100%; box-sizing: border-box; padding: 10px; font-family: inherit; border: 2px solid #3498db; border-radius: 4px; resize: none; overflow: hidden; font-size: 15px; line-height: 1.6; }
 
@@ -94,6 +155,22 @@
         .save-title-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; margin-right: 10px; }
         .save-actions { display: none; gap: 8px; }
         .save-item:hover .save-actions { display: flex; }
+
+        /* 📌 목차 드롭다운 */
+        #toc-dropdown { min-width: 280px; right: 0; }
+        .btn-toc-toggle { background: none; border: none; font-size: 1.3rem; color: #7f5a00; cursor: pointer; padding: 2px 8px; transition: 0.2s; border-radius: 4px; }
+        .btn-toc-toggle:hover { background: #fff9e6; color: #e1b12c; }
+        .btn-toc-toggle.has-markers { color: #fbc531; }
+        .toc-empty { padding: 16px; text-align: center; color: #999; font-size: 0.85rem; }
+        .toc-item { padding: 9px 12px; border-bottom: 1px solid #f5f6fa; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .toc-item:hover { background-color: #fffbef; }
+        .toc-item-num { font-size: 0.75rem; color: #aaa; min-width: 20px; }
+        .toc-item-title { flex: 1; font-size: 0.9rem; font-weight: bold; color: #2f3640; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .toc-item-title:hover { color: #e1b12c; text-decoration: underline; }
+        .toc-item-actions { display: flex; gap: 4px; opacity: 0; transition: 0.2s; }
+        .toc-item:hover .toc-item-actions { opacity: 1; }
+        .toc-add-btn { display: block; width: calc(100% - 24px); margin: 10px 12px; padding: 8px; background: #fffbef; border: 1px dashed #fbc531; border-radius: 4px; color: #7f5a00; font-size: 0.85rem; cursor: pointer; text-align: center; transition: 0.2s; }
+        .toc-add-btn:hover { background: #fff3cd; }
         
         .icon-btn { background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 0; opacity: 0.7; transition: 0.2s; }
         .icon-btn:hover { opacity: 1; transform: scale(1.15); }
@@ -118,7 +195,9 @@
             #preview-pane { padding: 10px; }
             #preview-content { padding: 15px; }
             .msg-controls { position: relative; opacity: 1; justify-content: flex-end; margin-top: 5px; top: 0; right: 0; }
-            .save-actions { display: flex; } 
+            .pin-btn { opacity: 0.4; }
+            .msg-block.is-pinned .pin-btn { opacity: 1; }
+            .save-actions { display: flex; }
         }
     </style>
 </head>
@@ -167,22 +246,34 @@
         
         <button class="btn" id="download-btn">✨ EPUB 다운로드 ✨</button>
         
-        <p style="font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; margin-top: 15px; color:#2f3640;">💾 수정된 데이터 다운로드</p>
+        <p style="font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; margin-top: 15px; color:#2f3640;">💾 수정된 데이터 원본 보존하기</p>
         <div class="export-container">
             <button class="btn-export" id="download-json-btn">JSON</button>
             <button class="btn-export" id="download-txt-btn">TXT</button>
         </div>
-        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 10px;">※ 새로고침 시, 실시간 미리보기의 내용이 사라집니다.</p>
+        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 10px;">※ 설정만 자동 저장되며, 대사 데이터는 별도로 다운받아야 합니다.</p>
     </div>
 
     <div id="preview-pane">
         <div class="pane-title-container">
-            <div class="pane-title">📖 실시간 미리보기 (수정 후 저장권장)</div>
-            <div class="dropdown-container">
-                <button class="btn-toggle" id="save-menu-toggle" title="저장소 메뉴">⋮</button>
-                <div id="save-dropdown" class="dropdown-menu">
-                    <div class="dropdown-header" id="btn-save-new">💾 임시저장</div>
-                    <div id="save-list"></div>
+            <div class="pane-title">📖 실시간 미리보기 (수정/삭제 가능)</div>
+            <div style="display:flex; align-items:center; gap:4px;">
+                <!-- 📌 목차 드롭다운 -->
+                <div class="dropdown-container">
+                    <button class="btn-toc-toggle" id="toc-menu-toggle" title="목차 관리">📌</button>
+                    <div id="toc-dropdown" class="dropdown-menu">
+                        <div class="dropdown-header" style="cursor:default;">📌 목차 목록</div>
+                        <div id="toc-list"></div>
+                        <button class="toc-add-btn" id="toc-add-new-btn">+ 현재 위치에 챕터 추가</button>
+                    </div>
+                </div>
+                <!-- ⋮ 저장소 드롭다운 -->
+                <div class="dropdown-container">
+                    <button class="btn-toggle" id="save-menu-toggle" title="저장소 메뉴">⋮</button>
+                    <div id="save-dropdown" class="dropdown-menu">
+                        <div class="dropdown-header" id="btn-save-new">💾 저장소에 새로 만들기</div>
+                        <div id="save-list"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -224,6 +315,8 @@
         let coverFileName       = null;
         let editingMessageIndex = null;
         let isDirty             = false;
+        // 목차 마커: { messageIndex: number, title: string }[]
+        let chapterMarkers      = [];
 
         // ─────────────────────────────────────────────
         // DOM 레퍼런스
@@ -252,6 +345,11 @@
         const jsonFileLabel     = document.getElementById('json-file-label');
         const coverDropZone     = document.getElementById('cover-drop-zone');
         const coverFileLabel    = document.getElementById('cover-file-label');
+
+        const tocToggle         = document.getElementById('toc-menu-toggle');
+        const tocDropdown       = document.getElementById('toc-dropdown');
+        const tocList           = document.getElementById('toc-list');
+        const tocAddNewBtn      = document.getElementById('toc-add-new-btn');
 
         // ─────────────────────────────────────────────
         // 페이지 이탈 경고
@@ -353,14 +451,36 @@
                 try {
                     if (ext === 'json') {
                         currentJsonData = JSON.parse(text);
+                        // isPinned / chapterTitle 로부터 chapterMarkers 복원
+                        chapterMarkers = [];
+                        (currentJsonData.messages || []).forEach((msg, idx) => {
+                            if (msg.isPinned && msg.chapterTitle) {
+                                chapterMarkers.push({ messageIndex: idx, title: msg.chapterTitle });
+                            }
+                        });
                     } else if (ext === 'txt') {
                         let messages = [], title = file.name.replace('.txt',''), author = 'Unknown';
+                        chapterMarkers = [];
                         if (text.includes('[User]') || text.includes('[Assistant]')) {
                             const tm = text.match(/^제목:\s*(.*)/m); if (tm) title  = tm[1].trim();
                             const am = text.match(/^작가:\s*(.*)/m); if (am) author = am[1].trim();
-                            text.split(/(?=\[(?:User|Assistant)\])/).forEach(block => {
+
+                            // === 챕터명 === 줄을 파싱해서 다음 메시지에 마커로 붙임
+                            let pendingChapter = null;
+                            text.split(/(?=\[(?:User|Assistant)\])|(?=^===\s.+\s===\s*$)/m).forEach(block => {
+                                const chapterMatch = block.match(/^===\s+(.+?)\s+===\s*$/m);
+                                if (chapterMatch) { pendingChapter = chapterMatch[1].trim(); return; }
                                 const isUser = block.startsWith('[User]'), isAss = block.startsWith('[Assistant]');
-                                if (isUser || isAss) { let c = block.replace(/^\[(?:User|Assistant)\]\n/,'').trim(); if(c) messages.push({role:isUser?'user':'assistant',content:c}); }
+                                if (isUser || isAss) {
+                                    let c = block.replace(/^\[(?:User|Assistant)\]\n/,'').trim();
+                                    if (c) {
+                                        if (pendingChapter !== null) {
+                                            chapterMarkers.push({ messageIndex: messages.length, title: pendingChapter });
+                                            pendingChapter = null;
+                                        }
+                                        messages.push({ role: isUser?'user':'assistant', content: c });
+                                    }
+                                }
                             });
                             currentJsonData = { title, userPersona:{name:author}, messages };
                         } else {
@@ -372,6 +492,7 @@
                     jsonFileLabel.textContent = file.name;
                     isDirty = false;
                     updatePreview();
+                    renderTocDropdown();
                 } catch(err) { alert("파일을 읽는 중 오류가 발생했습니다!"); }
             };
             reader.readAsText(file);
@@ -445,15 +566,29 @@
                 text = text.replace(/(<\/h[1-6]>)<br\/>/g, '$1').replace(/<br\/>(<h[1-6]>)/g, '$1');
 
                 let blockHtml = '';
-                if (role === 'assistant') { blockHtml += `<p>${text}</p>\n`; }
-                else if (role === 'user') {
-                    if (userDividerCheck.checked) blockHtml += `<hr class="user-divider"/>\n`;
-                    blockHtml += `<p class="user-text">${text}</p>\n`;
-                    if (userDividerCheck.checked) blockHtml += `<hr class="user-divider"/>\n`;
-                } else { blockHtml += `<p>${text}</p>\n`; }
+                if (role === 'assistant') {
+                    blockHtml += `<p data-msgindex="${index}">${text}</p>\n`;
+                } else if (role === 'user') {
+                    if (userDividerCheck.checked) blockHtml += `<hr class="user-divider" data-msgindex="${index}"/>\n`;
+                    else blockHtml += `<p class="user-text" data-msgindex="${index}">${text}</p>\n`;
+                    if (userDividerCheck.checked) {
+                        blockHtml += `<p class="user-text">${text}</p>\n`;
+                        blockHtml += `<hr class="user-divider"/>\n`;
+                    }
+                } else {
+                    blockHtml += `<p data-msgindex="${index}">${text}</p>\n`;
+                }
 
+                const hasMarker = getMarkerAt(index);
                 html += `
-                <div class="msg-block" id="msg-block-${index}">
+                <div class="msg-block ${hasMarker ? 'is-pinned' : ''}" id="msg-block-${index}">
+                    <button class="pin-btn" onclick="togglePinMarker(${index})" title="${hasMarker ? '챕터 마커 제거' : '여기에 챕터 마커 추가'}">📌</button>
+                    ${hasMarker ? `
+                    <div class="chapter-marker">
+                        <span class="marker-icon">📖</span>
+                        <span class="marker-title" onclick="renameChapterMarker(${index}, event)" style="cursor:pointer;" title="클릭하면 이름 변경">${hasMarker.title}</span>
+                        <button class="marker-remove" onclick="removeChapterMarker(${index}, event)" title="마커 제거">✕</button>
+                    </div>` : ''}
                     <div class="msg-content">${blockHtml}</div>
                     <div class="msg-controls">
                         <button class="btn-small btn-edit" onclick="editMessage(${index})">수정</button>
@@ -465,8 +600,164 @@
             previewContent.innerHTML = html;
         }
 
+        // ─────────────────────────────────────────────
+        // 목차 마커 함수
+        // ─────────────────────────────────────────────
+        function getMarkerAt(index) {
+            return chapterMarkers.find(m => m.messageIndex === index) || null;
+        }
+
+        // 핀 토글: 없으면 추가, 있으면 제거
+        window.togglePinMarker = function(index) {
+            if (getMarkerAt(index)) {
+                // 이미 있으면 바로 제거
+                chapterMarkers = chapterMarkers.filter(m => m.messageIndex !== index);
+                isDirty = true;
+                updatePreview();
+                renderTocDropdown();
+            } else {
+                // 없으면 이름 입력 후 추가
+                const defaultTitle = `${chapterMarkers.length + 1}화`;
+                const title = prompt("챕터 이름을 입력하세요:", defaultTitle);
+                if (title === null) return;
+                chapterMarkers.push({ messageIndex: index, title: title.trim() || defaultTitle });
+                chapterMarkers.sort((a, b) => a.messageIndex - b.messageIndex);
+                isDirty = true;
+                updatePreview();
+                renderTocDropdown();
+            }
+        };
+
+        window.addChapterMarker = function(index) {
+            if (getMarkerAt(index)) return;
+            const defaultTitle = `${chapterMarkers.length + 1}화`;
+            const title = prompt("챕터 이름을 입력하세요:", defaultTitle);
+            if (title === null) return;
+            chapterMarkers.push({ messageIndex: index, title: title.trim() || defaultTitle });
+            chapterMarkers.sort((a, b) => a.messageIndex - b.messageIndex);
+            isDirty = true;
+            updatePreview();
+            renderTocDropdown();
+        };
+
+        window.removeChapterMarker = function(index, e) {
+            e.stopPropagation();
+            chapterMarkers = chapterMarkers.filter(m => m.messageIndex !== index);
+            isDirty = true;
+            updatePreview();
+            renderTocDropdown();
+        };
+
+        window.renameChapterMarker = function(index, e) {
+            e.stopPropagation();
+            const marker = getMarkerAt(index);
+            if (!marker) return;
+            const newTitle = prompt("새 챕터 이름을 입력하세요:", marker.title);
+            if (newTitle === null) return;
+            marker.title = newTitle.trim() || marker.title;
+            isDirty = true;
+            updatePreview();
+            renderTocDropdown();
+        };
+
+        // ─────────────────────────────────────────────
+        // 목차 드롭다운 렌더
+        // ─────────────────────────────────────────────
+        function renderTocDropdown() {
+            // 📌 버튼 색상: 마커 있으면 노란색
+            tocToggle.classList.toggle('has-markers', chapterMarkers.length > 0);
+            tocToggle.title = chapterMarkers.length > 0 ? `목차 (${chapterMarkers.length}개)` : '목차 관리';
+
+            tocList.innerHTML = '';
+            if (chapterMarkers.length === 0) {
+                tocList.innerHTML = '<div class="toc-empty">아직 지정된 챕터가 없습니다.<br>본문에서 블록에 마우스를 올리고<br>📌 버튼을 눌러 추가하세요.</div>';
+                return;
+            }
+            chapterMarkers.forEach((marker, i) => {
+                const div = document.createElement('div');
+                div.className = 'toc-item';
+                div.innerHTML = `
+                    <span class="toc-item-num">${i + 1}</span>
+                    <span class="toc-item-title" title="클릭하면 해당 위치로 이동">${marker.title}</span>
+                    <div class="toc-item-actions">
+                        <button class="icon-btn" title="이름 변경" onclick="tocRenameMarker(${marker.messageIndex}, event)">✏️</button>
+                        <button class="icon-btn" title="삭제"     onclick="tocRemoveMarker(${marker.messageIndex}, event)">❌</button>
+                    </div>`;
+                // 제목 클릭 → 해당 블록으로 스크롤
+                div.querySelector('.toc-item-title').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const target = document.getElementById(`msg-block-${marker.messageIndex}`);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        target.style.outline = '2px solid #fbc531';
+                        setTimeout(() => target.style.outline = '', 1500);
+                    }
+                    tocDropdown.classList.remove('show');
+                });
+                tocList.appendChild(div);
+            });
+        }
+
+        window.tocRenameMarker = function(index, e) {
+            e.stopPropagation();
+            const marker = getMarkerAt(index);
+            if (!marker) return;
+            const newTitle = prompt("새 챕터 이름을 입력하세요:", marker.title);
+            if (newTitle === null) return;
+            marker.title = newTitle.trim() || marker.title;
+            isDirty = true;
+            updatePreview();
+            renderTocDropdown();
+        };
+
+        window.tocRemoveMarker = function(index, e) {
+            e.stopPropagation();
+            chapterMarkers = chapterMarkers.filter(m => m.messageIndex !== index);
+            isDirty = true;
+            updatePreview();
+            renderTocDropdown();
+        };
+
+        // 📌 버튼 토글
+        tocToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 저장소 드롭다운 닫기
+            dropdownMenu.classList.remove('show');
+            tocDropdown.classList.toggle('show');
+            if (tocDropdown.classList.contains('show')) renderTocDropdown();
+        });
+        document.addEventListener('click', () => tocDropdown.classList.remove('show'));
+        tocDropdown.addEventListener('click', (e) => e.stopPropagation());
+
+        // 목차 드롭다운에서 "+ 챕터 추가" 버튼: 메시지 인덱스 직접 입력
+        tocAddNewBtn.addEventListener('click', () => {
+            if (!currentJsonData) return alert("데이터를 먼저 불러오세요.");
+            const total = (currentJsonData.messages || []).length;
+            const input = prompt(`챕터를 삽입할 메시지 번호를 입력하세요. (1 ~ ${total})\n※ 해당 메시지 위에 챕터 마커가 붙습니다.`);
+            if (input === null) return;
+            const idx = parseInt(input, 10) - 1;
+            if (isNaN(idx) || idx < 0 || idx >= total) return alert("올바른 번호를 입력해주세요.");
+            if (getMarkerAt(idx)) return alert("이미 챕터 마커가 있는 위치입니다.");
+            const defaultTitle = `${chapterMarkers.length + 1}화`;
+            const title = prompt("챕터 이름을 입력하세요:", defaultTitle);
+            if (title === null) return;
+            chapterMarkers.push({ messageIndex: idx, title: title.trim() || defaultTitle });
+            chapterMarkers.sort((a, b) => a.messageIndex - b.messageIndex);
+            isDirty = true;
+            updatePreview();
+            renderTocDropdown();
+        });
+
         window.deleteMessage = function(index) {
-            if (confirm("이 대사를 삭제하시겠습니까?")) { currentJsonData.messages.splice(index,1); isDirty=true; updatePreview(); }
+            if (confirm("이 대사를 삭제하시겠습니까?")) {
+                currentJsonData.messages.splice(index, 1);
+                chapterMarkers = chapterMarkers
+                    .filter(m => m.messageIndex !== index)
+                    .map(m => ({ ...m, messageIndex: m.messageIndex > index ? m.messageIndex - 1 : m.messageIndex }));
+                isDirty = true;
+                updatePreview();
+                renderTocDropdown();
+            }
         };
 
         window.editMessage = function(index) {
@@ -519,7 +810,10 @@
             if (!currentJsonData) return alert("저장할 데이터가 없습니다.");
             let name = prompt("저장소에 보관할 이름을 입력하세요:", (currentJsonData.title||"제목 없음")+" ("+new Date().toLocaleTimeString('ko-KR',{hour12:false,hour:'2-digit',minute:'2-digit'})+")");
             if (name && name.trim()!=="") {
-                try { await dbPut('saves',{id:Date.now(),title:name,data:currentJsonData}); isDirty=false; await renderSaveList(); alert("성공적으로 저장되었습니다!"); }
+                try {
+                    await dbPut('saves', { id: Date.now(), title: name, data: currentJsonData, chapterMarkers: chapterMarkers });
+                    isDirty=false; await renderSaveList(); alert("성공적으로 저장되었습니다!");
+                }
                 catch(e) { alert("데이터베이스 저장에 실패했습니다."); }
             }
         });
@@ -529,11 +823,15 @@
                 const item = await dbGet('saves',id);
                 if (item && confirm(`[${item.title}] 데이터를 불러오시겠습니까?\n(현재 화면의 내용은 덮어씌워집니다)`)) {
                     currentJsonData = item.data;
+                    chapterMarkers  = item.chapterMarkers || [];
                     titleInput.value  = currentJsonData.title || '';
                     authorInput.value = (currentJsonData.userPersona && currentJsonData.userPersona.name) || '';
-                    jsonFileLabel.textContent = ''; // [수정] 저장소에서 불러오면 파일명 초기화
+                    jsonFileLabel.textContent = '';
                     jsonInput.value = '';
-                    isDirty=false; updatePreview(); dropdownMenu.classList.remove('show');
+                    isDirty = false;
+                    updatePreview();
+                    renderTocDropdown();
+                    dropdownMenu.classList.remove('show');
                 }
             } catch(e) { alert("데이터를 불러오지 못했습니다."); }
         };
@@ -556,8 +854,36 @@
             if (editingMessageIndex !== null) { alert("대사 수정을 완료한 뒤 다운로드해주세요."); return false; }
             return true;
         }
-        btnJson.addEventListener('click', () => { if(!checkExportReady())return; saveAs(new Blob([JSON.stringify(currentJsonData,null,2)],{type:'application/json'}),(titleInput.value||"수정본")+"_수정됨.json"); isDirty=false; });
-        btnTxt.addEventListener('click',  () => { if(!checkExportReady())return; let txt=`제목: ${titleInput.value||'제목 없음'}\n작가: ${authorInput.value||'Unknown'}\n\n`; (currentJsonData.messages||[]).forEach(m=>{ txt+=`[${m.role==='user'?'User':'Assistant'}]\n${m.content}\n\n`; }); saveAs(new Blob([txt],{type:'text/plain;charset=utf-8'}),(titleInput.value||"수정본")+"_수정됨.txt"); isDirty=false; });
+
+        btnJson.addEventListener('click', () => {
+            if (!checkExportReady()) return;
+            // 마커 정보를 messages 각 항목에 isPinned / chapterTitle 로 심기
+            const exportData = JSON.parse(JSON.stringify(currentJsonData)); // deep copy
+            exportData.messages.forEach((msg, idx) => {
+                delete msg.isPinned;
+                delete msg.chapterTitle;
+                const marker = chapterMarkers.find(m => m.messageIndex === idx);
+                if (marker) {
+                    msg.isPinned     = true;
+                    msg.chapterTitle = marker.title;
+                }
+            });
+            saveAs(new Blob([JSON.stringify(exportData, null, 2)], {type:'application/json'}), (titleInput.value||"수정본")+"_수정됨.json");
+            isDirty = false;
+        });
+
+        btnTxt.addEventListener('click', () => {
+            if (!checkExportReady()) return;
+            let txt = `제목: ${titleInput.value||'제목 없음'}\n작가: ${authorInput.value||'Unknown'}\n\n`;
+            (currentJsonData.messages||[]).forEach((msg, idx) => {
+                const marker = chapterMarkers.find(m => m.messageIndex === idx);
+                if (marker) txt += `=== ${marker.title} ===\n`;
+                const roleName = msg.role === 'user' ? 'User' : 'Assistant';
+                txt += `[${roleName}]\n${msg.content}\n\n`;
+            });
+            saveAs(new Blob([txt],{type:'text/plain;charset=utf-8'}),(titleInput.value||"수정본")+"_수정됨.txt");
+            isDirty = false;
+        });
 
         // ─────────────────────────────────────────────
         // 이미지 fetch (타임아웃 30초)
@@ -689,6 +1015,44 @@
                     bodyHtml = bodyHtml.split(original).join(local);
                 }
 
+                // ── 목차 앵커 삽입 ──────────────────────────────
+                // chapterMarkers 순서대로 해당 msg-block 위치에 id 앵커를 심는다
+                // previewClone에서 msg-block은 이미 제거됐으므로, DOM 파싱 후 삽입
+                if (chapterMarkers.length > 0) {
+                    const parser  = new DOMParser();
+                    const tmpDoc  = parser.parseFromString(`<html><body>${bodyHtml}</body></html>`, 'text/html');
+                    const tmpBody = tmpDoc.body;
+
+                    // previewContent의 실제 msg-block 순서대로 앵커 id를 매긴다
+                    // msg-block은 제거됐으므로 미리보기 기준으로 렌더된 단락 순서를 활용:
+                    // 각 챕터마커가 messageIndex 번째 메시지 직전을 가리킴
+                    // → bodyHtml 내 p/hr 태그들을 순서대로 세서 해당 위치에 <a> 앵커 삽입
+                    // 더 안정적인 방법: updatePreview 때 data-msgindex를 달아두는 방식 사용
+
+                    // data-msgindex 속성이 있는 요소 찾기 (아래에서 updatePreview도 수정)
+                    chapterMarkers.forEach(marker => {
+                        const anchorId = `chap_${marker.messageIndex}`;
+                        const target = tmpBody.querySelector(`[data-msgindex="${marker.messageIndex}"]`);
+                        if (target) {
+                            const anchor = tmpDoc.createElement('a');
+                            anchor.id = anchorId;
+                            anchor.style.display = 'block';
+                            target.parentNode.insertBefore(anchor, target);
+                        }
+                    });
+                    bodyHtml = tmpBody.innerHTML;
+                }
+
+                // ── nav.xhtml 목차 생성 ─────────────────────────
+                let tocItems = '';
+                if (chapterMarkers.length > 0) {
+                    tocItems = chapterMarkers.map(m =>
+                        `<li><a href="chap_01.xhtml#chap_${m.messageIndex}">${escapeXml(m.title)}</a></li>`
+                    ).join('\n        ');
+                } else {
+                    tocItems = `<li><a href="chap_01.xhtml">본문</a></li>`;
+                }
+
                 const uniqueId = crypto.randomUUID ? crypto.randomUUID() : 'epub-'+Date.now()+'-'+Math.floor(Math.random()*10000);
 
                 zip.file("mimetype", "application/epub+zip", { compression:"STORE" });
@@ -708,7 +1072,7 @@ img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em a
                 );
 
                 oebps.file("chap_01.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">\n<head><title>${title}</title><link rel="stylesheet" type="text/css" href="style/default.css"/></head>\n<body>${bodyHtml}</body>\n</html>`);
-                oebps.file("nav.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n<head><title>Navigation</title></head>\n<body><nav epub:type="toc" id="toc"><h1>목차</h1><ol><li><a href="chap_01.xhtml">본문</a></li></ol></nav></body>\n</html>`);
+                oebps.file("nav.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n<head><title>Navigation</title></head>\n<body><nav epub:type="toc" id="toc"><h1>목차</h1><ol>\n        ${tocItems}\n    </ol></nav></body>\n</html>`);
 
                 let coverMeta = "", coverItem = "";
                 if (coverFileContent) {
