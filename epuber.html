@@ -75,8 +75,8 @@
         .btn-edit:hover { background-color: #2980b9; }
         button:disabled { opacity: 0.5; cursor: not-allowed !important; }
 
-        .btn { display: block; width: 100%; padding: 15px; background-color: #fbc531; color: #2f3640; text-align: center; font-weight: bold; font-size: 1.1rem; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; margin-top: 10px; }
-        .btn:hover { background-color: #e1b12c; }
+        .btn { display: block; width: 100%; padding: 15px; background-color: #1E9EFF; color: #fff; text-align: center; font-weight: bold; font-size: 1.1rem; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; margin-top: 10px; }
+        .btn:hover { background-color: #1e88e0; }
 
         .export-container { display: flex; gap: 8px; margin-top: 10px; }
         .btn-export { background-color: #7bed9f; font-size: 0.95rem; flex: 1; padding: 12px; margin: 0; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; color: #2f3640; }
@@ -213,7 +213,7 @@
 
     <div class="loading-overlay" id="loading-screen">
         <div class="spinner"></div>
-        <div id="loading-desc">EPUB 포장 및 이미지 다운로드 중...🚀<br>안전하게 1개씩 차례대로 다운받고 있습니다.</div>
+        <div id="loading-desc">EPUB 변환 및 이미지 다운로드 중...🚀<br>외부이미지의 경우 '실시간 미리보기'에 보였더라도 다운이 되지 않을 수 있어요.</div>
         <div id="progress-text">(0 / 0)</div>
     </div>
 
@@ -221,7 +221,7 @@
         <h2 style="margin-top: 0;">EPUB 설정</h2>
 
         <div class="control-group">
-            <label>1. 데이터 불러오기 (JSON, TXT)</label>
+            <label>1. 데이터 불러오기 (JSON)</label>
             <input type="file" id="json-file" accept=".json,.txt">
             <!-- [수정] 커스텀 드롭존 -->
             <div class="drop-zone" id="json-drop-zone">
@@ -252,19 +252,19 @@
             <label style="font-weight: normal; cursor: pointer; display: block;"><input type="checkbox" id="remove-img"> '![이미지](주소)' 문구 완전 삭제</label>
         </div>
         
-        <button class="btn" id="download-btn">✨ EPUB 다운로드 ✨</button>
+        <button class="btn" id="download-btn">EPUB 다운로드</button>
         
-        <p style="font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; margin-top: 15px; color:#2f3640;">💾 수정된 데이터 원본 보존하기</p>
+        <p style="font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; margin-top: 15px; color:#2f3640;">💾 수정된 데이터 다운로드</p>
         <div class="export-container">
             <button class="btn-export" id="download-json-btn">JSON</button>
             <button class="btn-export" id="download-txt-btn">TXT</button>
         </div>
-        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 10px;">※ 설정만 자동 저장되며, 대사 데이터는 별도로 다운받아야 합니다.</p>
+        <p style="font-size: 0.8rem; text-align: center; color: #7f8fa6; margin-top: 10px;">※ 브라우저 캐시를 지우면 임시저장 내용이 사라져요.</p>
     </div>
 
     <div id="preview-pane">
         <div class="pane-title-container">
-            <div class="pane-title">📖 실시간 미리보기 (수정/삭제 가능)</div>
+            <div class="pane-title">📖 실시간 미리보기</div>
             <div style="display:flex; align-items:center; gap:4px;">
                 <!-- 📌 목차 드롭다운 -->
                 <div class="dropdown-container">
@@ -279,7 +279,7 @@
                 <div class="dropdown-container">
                     <button class="btn-toggle" id="save-menu-toggle" title="저장소 메뉴">⋮</button>
                     <div id="save-dropdown" class="dropdown-menu">
-                        <div class="dropdown-header" id="btn-save-new">💾 저장소에 새로 만들기</div>
+                        <div class="dropdown-header" id="btn-save-new">💾 임시저장</div>
                         <div id="save-list"></div>
                     </div>
                 </div>
@@ -406,7 +406,7 @@
             const div = document.createElement('div'); div.className = 'hud-item';
             const chk = document.createElement('input'); chk.type='checkbox'; chk.className='hud-checkbox'; chk.checked=isChecked;
             chk.addEventListener('change', () => { saveSettings(); updatePreview(); });
-            const input = document.createElement('textarea'); input.className='hud-input'; input.rows=2; input.value=value; input.placeholder="예: **[ $$$ ]**";
+            const input = document.createElement('textarea'); input.className='hud-input'; input.rows=2; input.value=value; input.placeholder="예: **[ 턴수⼁날짜⼁시간⼁장소 ]** → **[ $$$ ]**";
             input.addEventListener('input', () => { saveSettings(); updatePreview(); });
             const rmBtn = document.createElement('button'); rmBtn.className='btn-small btn-remove'; rmBtn.textContent='X';
             rmBtn.onclick = () => { div.remove(); saveSettings(); updatePreview(); };
@@ -1054,20 +1054,10 @@
                 }
 
                 // ── 목차 앵커 삽입 ──────────────────────────────
-                // chapterMarkers 순서대로 해당 msg-block 위치에 id 앵커를 심는다
-                // previewClone에서 msg-block은 이미 제거됐으므로, DOM 파싱 후 삽입
                 if (chapterMarkers.length > 0) {
                     const parser  = new DOMParser();
                     const tmpDoc  = parser.parseFromString(`<html><body>${bodyHtml}</body></html>`, 'text/html');
                     const tmpBody = tmpDoc.body;
-
-                    // previewContent의 실제 msg-block 순서대로 앵커 id를 매긴다
-                    // msg-block은 제거됐으므로 미리보기 기준으로 렌더된 단락 순서를 활용:
-                    // 각 챕터마커가 messageIndex 번째 메시지 직전을 가리킴
-                    // → bodyHtml 내 p/hr 태그들을 순서대로 세서 해당 위치에 <a> 앵커 삽입
-                    // 더 안정적인 방법: updatePreview 때 data-msgindex를 달아두는 방식 사용
-
-                    // data-msgindex 속성이 있는 요소 찾기 (아래에서 updatePreview도 수정)
                     chapterMarkers.forEach(marker => {
                         const anchorId = `chap_${marker.messageIndex}`;
                         const target = tmpBody.querySelector(`[data-msgindex="${marker.messageIndex}"]`);
