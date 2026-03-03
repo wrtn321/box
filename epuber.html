@@ -951,6 +951,36 @@
             const hashArray  = Array.from(new Uint8Array(hashBuffer));
             return hashArray.map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 16);
         }
+        function buildNcx(title, author, uniqueId, markers) {
+    let navPoints = '';
+    if (markers.length > 0) {
+        navPoints = markers.map((m, i) => `
+    <navPoint id="navPoint-${i + 1}" playOrder="${i + 1}">
+      <navLabel><text>${escapeXml(m.title)}</text></navLabel>
+      <content src="chap_01.xhtml#chap_${m.messageIndex}"/>
+    </navPoint>`).join('');
+    } else {
+        navPoints = `
+    <navPoint id="navPoint-1" playOrder="1">
+      <navLabel><text>${escapeXml(title)}</text></navLabel>
+      <content src="chap_01.xhtml"/>
+    </navPoint>`;
+    }
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="urn:uuid:${uniqueId}"/>
+    <meta name="dtb:depth" content="1"/>
+    <meta name="dtb:totalPageCount" content="0"/>
+    <meta name="dtb:maxPageNumber" content="0"/>
+  </head>
+  <docTitle><text>${escapeXml(title)}</text></docTitle>
+  <docAuthor><text>${escapeXml(author)}</text></docAuthor>
+  <navMap>${navPoints}
+  </navMap>
+</ncx>`;
+}
 
         // ─────────────────────────────────────────────
         // EPUB 다운로드
@@ -1081,7 +1111,13 @@ img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em a
 
                 oebps.file("chap_01.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko">\n<head><title>${title}</title><link rel="stylesheet" type="text/css" href="style/default.css"/></head>\n<body>${bodyHtml}</body>\n</html>`);
                 oebps.file("nav.xhtml", `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n<head><title>Navigation</title></head>\n<body><nav epub:type="toc" id="toc"><h1>목차</h1><ol>\n        ${tocItems}\n    </ol></nav></body>\n</html>`);
-
+                oebps.file("toc.ncx", buildNcx(
+                    titleInput.value  || "제목 없음",
+                    authorInput.value || "Unknown",
+                    uniqueId,
+                    chapterMarkers
+                ));
+                
                 let coverMeta = "", coverItem = "";
                 if (coverFileContent) {
                     const ext = coverFileName.split('.').pop().toLowerCase();
@@ -1091,7 +1127,17 @@ img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em a
                     coverItem = `<item id="cover-image" href="cover.${ext}" media-type="${mimeType}"/>`;
                 }
 
-                oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">\n    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>\n        <dc:identifier id="pub-id">urn:uuid:${uniqueId}</dc:identifier>\n        ${coverMeta}\n    </metadata>\n    <manifest>\n        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n        <item id="chap1" href="chap_01.xhtml" media-type="application/xhtml+xml"/>\n        <item id="css" href="style/default.css" media-type="text/css"/>\n        ${manifestItems}\n        ${coverItem}\n    </manifest>\n    <spine><itemref idref="chap1"/></spine>\n</package>`);
+                oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">\n    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>\n        <dc:identifier id="pub-id">urn:uuid:${uniqueId}</dc:identifier>\n        ${coverMeta}\n    </metadata>\n    <manifest>
+  <item id="nav"   href="nav.xhtml"         media-type="application/xhtml+xml" properties="nav"/>
+  <item id="ncx"   href="toc.ncx"           media-type="application/x-dtbncx+xml"/>
+  <item id="chap1" href="chap_01.xhtml"     media-type="application/xhtml+xml"/>
+  <item id="css"   href="style/default.css" media-type="text/css"/>
+  ...
+</manifest>
+<spine toc="ncx">
+  <itemref idref="chap1"/>
+  <itemref idref="nav" linear="no"/>
+</spine>\n</package>`);
 
                 const content = await zip.generateAsync({ type:"blob", mimeType:"application/epub+zip" });
                 saveAs(content, title + ".epub");
