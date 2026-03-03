@@ -1072,10 +1072,7 @@
                         const anchorId = `chap_${marker.messageIndex}`;
                         const target = tmpBody.querySelector(`[data-msgindex="${marker.messageIndex}"]`);
                         if (target) {
-                            const anchor = tmpDoc.createElement('a');
-                            anchor.id = anchorId;
-                            anchor.style.display = 'block';
-                            target.parentNode.insertBefore(anchor, target);
+                            target.id = anchorId; // 빈 태그 생성 대신 직접 요소에 ID를 부여
                         }
                     });
                     bodyHtml = tmpBody.innerHTML;
@@ -1127,17 +1124,28 @@ img.content-img { max-width: 100%; height: auto; display: block; margin: 1.8em a
                     coverItem = `<item id="cover-image" href="cover.${ext}" media-type="${mimeType}"/>`;
                 }
 
-                oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">\n    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n        <dc:title>${title}</dc:title><dc:creator>${author}</dc:creator><dc:language>ko</dc:language>\n        <dc:identifier id="pub-id">urn:uuid:${uniqueId}</dc:identifier>\n        ${coverMeta}\n    </metadata>\n    <manifest>
-  <item id="nav"   href="nav.xhtml"         media-type="application/xhtml+xml" properties="nav"/>
-  <item id="ncx"   href="toc.ncx"           media-type="application/x-dtbncx+xml"/>
-  <item id="chap1" href="chap_01.xhtml"     media-type="application/xhtml+xml"/>
-  <item id="css"   href="style/default.css" media-type="text/css"/>
-  ...
-</manifest>
-<spine toc="ncx">
-  <itemref idref="chap1"/>
-  <itemref idref="nav" linear="no"/>
-</spine>\n</package>`);
+                oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>
+                <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">
+                    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+                        <dc:title>${title}</dc:title>
+                        <dc:creator>${author}</dc:creator>
+                        <dc:language>ko</dc:language>
+                        <dc:identifier id="pub-id">urn:uuid:${uniqueId}</dc:identifier>
+                        ${coverMeta}
+                    </metadata>
+                    <manifest>
+                        <item id="nav"   href="nav.xhtml"         media-type="application/xhtml+xml" properties="nav"/>
+                        <item id="ncx"   href="toc.ncx"           media-type="application/x-dtbncx+xml"/>
+                        <item id="chap1" href="chap_01.xhtml"     media-type="application/xhtml+xml"/>
+                        <item id="css"   href="style/default.css" media-type="text/css"/>
+                        ${coverItem}
+                        ${manifestItems}
+                    </manifest>
+                    <spine toc="ncx">
+                        <itemref idref="chap1"/>
+                        <itemref idref="nav" linear="no"/>
+                    </spine>
+                </package>`);
 
                 const content = await zip.generateAsync({ type:"blob", mimeType:"application/epub+zip" });
                 saveAs(content, title + ".epub");
