@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Gemini API 비용/추론 코드</title>
+</head>
+<body>
+
+    <button onclick="copyContent()" style="padding: 10px; font-size: 16px; font-weight: bold; cursor: pointer;">[전체복사]</button>
+
+    <br><br>
+
+    <div id="contentToCopy" style="white-space: pre-wrap; font-family: monospace;">
+아래 코드는 Gemini API의 숨겨진 비용(추론 토큰)을 제어하고, 실제 사용 요금을 정확히 계산해 UI에 렌더링하는 핵심 로직입니다.
+내 기존 스크립트(Tampermonkey 등)에 이 로직들을 병합해줘.
+
+==================================================
+[1] API Usage 관련 코드 (가격, 계산식, usage 반환 및 렌더링)
+==================================================
+
+// ① 요금표 및 Usage 정규화 (방어 코드)
+const MODEL_PRICING = {
+    "gemini-3.1-flash-lite-preview": { input: 0.25, output: 1.50, cacheRead: 0.025, cacheWrite: 0.25 },
+    "gemini-3-flash-preview": { input: 0.50, output: 3.00, cacheRead: 0.05, cacheWrite: 0.50 },
+    "gemini-3.5-flash": { input: 1.50, output: 9.00, cacheRead: 0.15, cacheWrite: 1.50 }, 
+    "gemini-2.5-pro": { input: 1.25, output: 10.00, cacheRead: 0.125, cacheWrite: 1.25 },
+    "gemini-3.1-pro-preview": { input: 2.00, output: 12.00, cacheRead: 0.20, cacheWrite: 2.00 }
+};
+
+function normalizeUsage(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const u = {};
+    u.model = raw.model || String(raw.model || "");
+
+    const pick = (keys) => {
+        for (const k of keys) {
+            const v = raw[k];
+            if (typeof v === "number") return v;
+            if (typeof v === "string" && !isNaN(Number(v))) return Number(v);
+        }
+        return 0;
+    };
+
+    u.inputTokens = pick(["inputTokens", "input_tokens", "promptTokenCount", "prompt_token_count", "promptTokens"]);
+    u.outputTokens = pick(["outputTokens", "output_tokens", "candidatesTokenCount", "candidates_token_count"]);
+    u.cacheReadInputTokens = pick(["cacheReadInputTokens", "cache_read_input_tokens", "cachedContentTokenCount", "cached_content_token_count"]);
+    u.thoughtsTokenCount = pick(["thoughtsTokenCount", "thoughts_token_count", "thinking_tokens"]);
+    return u;
+}
+
+// ② 토큰 분리 및 요금 계산식
+function calculateCost(usage, exchangeRate = 1500, modelOverride = "") {
+    const u = usage ? normalizeUsage(usage) : null;
+    if (!u) return null;
+
+    const modelIdRaw = u.model || modelOverride;
+    const pricing = MODEL_PRICING[modelIdRaw] || MODEL_PRICING["gemini-3-flash-preview"];
+    if (!pricing) return null;
+
+    const thoughtsTokens = u.thoughtsTokenCount || 0;
+    const cacheReadTokens = u.cacheReadInputTokens || 0;
+    const totalInputTokens = u.inputTokens || 0;
+    const totalOutputTokens = u.outputTokens || 0;
+
+    let actualOutputTokens = 0;
+    if (thoughtsTokens > 0 && totalOutputTokens >= thoughtsTokens) {
+        actualOutputTokens = totalOutputTokens - thoughtsTokens;
+    } else {
+        actualOutputTokens = totalOutputTokens;
+    }
+
+    const uncachedInputTokens = Math.max(0, totalInputTokens - cacheReadTokens);
+
+    const readCost = (cacheReadTokens * pricing.cacheRead) / 1000000;
+    const writeCost = (uncachedInputTokens * pricing.cacheWrite) / 1000000;
+    const outputCost = (actualOutputTokens * pricing.output) / 1000000;
+    const thoughtsCost = (thoughtsTokens * pricing.output) / 1000000;
+
+    const totalUsd = readCost + writeCost + outputCost + thoughtsCost;
+    const totalKrw = totalUsd * exchangeRate;
+
+    return {
+        usd: totalUsd,
+        krw: totalKrw,
+        tokens: {
+            read: cacheReadTokens,
+            write: uncachedInputTokens,
+            output: actualOutputTokens,
+            thoughts: thoughtsTokens
+        }
+    };
+}
+
+// ③ API 호출 및 화면 렌더링 예시
+// fetch 요청 후 응답 반환 시:
+// const res = await response.json();
+// return { text: res.candidates[0].content.parts[0].text, usage: res.usageMetadata || {}, model: config.model };
+
+// 화면 렌더링 시:
+/*
+if (usage) {
+    const costData = calculateCost(usage, 1500, usedModel);
+    if (costData) {
+        const { read, write, output, thoughts } = costData.tokens;
+        const costKrw = costData.krw;
+        let tooltipStr = \`입력: \${write} / 캐시: \${read} / 일반출력: \${output} / 추론출력: \${thoughts}\`;
+        let costStr = \`<span title="\${tooltipStr}" style="color:#4f46e5; font-weight:bold; margin-left:6px; cursor:help;">₩\${costKrw.toFixed(2)}</span>\`;
+        
+        html += \`
+        <div style="font-size: 11px; color: #888; border-top: 1px dashed #ccc; padding-top: 8px; margin-bottom: 8px; display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
+            <span>📚 캐시읽기: \${read}</span>
+            <span>📝 일반입력: \${write}</span>
+            <span>💬 일반출력: \${output}</span>
+            <span>🤔 추론출력: \${thoughts}</span>
+            \${costStr}
+        </div>\`;
+    }
+}
+*/
+
+
+==================================================
+[2] 추론(Thinking) 토글 조정 및 안전장치 코드
+==================================================
+
+// ① 모델별 동적 UI 생성 (모달창 내부)
+function updateThinkingUI() {
+    const prevModel = thinkContainer.getAttribute('data-current-model'); 
+    const currentModel = modelSelect.value; 
+    const thinkInput = document.getElementById('g-think-val');
+    
+    if (thinkInput && prevModel) {
+        if (prevModel.includes('gemini-3')) tempThinkingLevels[prevModel] = thinkInput.value;
+        else if (prevModel.includes('gemini-2.5')) tempThinkingBudgets[prevModel] = parseInt(thinkInput.value) || 1024;
+    }
+    thinkContainer.setAttribute('data-current-model', currentModel);
+
+    if (currentModel.includes('gemini-3')) {
+        let currentLevel = tempThinkingLevels[currentModel] || "medium"; 
+        let labelPrefix = currentModel.includes('pro') ? "3.1 Pro" : "Flash";
+        
+        if (currentModel.includes('pro') && currentLevel === 'minimal') currentLevel = 'low';
+        
+        thinkContainer.innerHTML = \`
+            <label style="display:block;margin-bottom:5px;font-size:13px;font-weight:bold;">🧠 \${labelPrefix} 추론</label>
+            <select id="g-think-val" style="...">
+                \${!currentModel.includes('pro') ? \`<option value="minimal" \${currentLevel === 'minimal' ? 'selected' : ''}>Minimal</option>\` : ''}
+                <option value="low" \${currentLevel === 'low' ? 'selected' : ''}>Low</option>
+                <option value="medium" \${currentLevel === 'medium' ? 'selected' : ''}>Medium</option>
+                <option value="high" \${currentLevel === 'high' ? 'selected' : ''}>High</option>
+            </select>\`;
+    } else if (currentModel.includes('gemini-2.5')) {
+        thinkContainer.innerHTML = \`
+            <label style="display:block;margin-bottom:5px;font-size:13px;font-weight:bold;">🧠 2.5 Pro 예산</label>
+            <input type="number" id="g-think-val" min="128" max="2000" value="\${tempThinkingBudgets[currentModel] || 1024}" style="...">\`;
+    }
+}
+
+// ② 모달 저장 시 128 강제 보정 (저장 버튼 이벤트 내부)
+/*
+const selectedModel = document.getElementById('g-model').value; 
+const thinkInput = document.getElementById('g-think-val');
+if (thinkInput) {
+    if (selectedModel.includes('gemini-3')) {
+        tempThinkingLevels[selectedModel] = thinkInput.value;
+    } else if (selectedModel.includes('gemini-2.5')) {
+        let parsedBudget = parseInt(thinkInput.value) || 1024;
+        if (parsedBudget < 128) parsedBudget = 128; // UI에서 0 입력 방지
+        tempThinkingBudgets[selectedModel] = parsedBudget;
+    }
+}
+*/
+
+// ③ API 호출 페이로드 설정 (fetch 전)
+/*
+const payload = {
+    contents: [{ parts: [{ text: fullPrompt }] }],
+    generationConfig: {}
+};
+
+if (!config.model.includes('gemini-3')) {
+    payload.generationConfig.temperature = parseFloat(config.temperature);
+}
+
+if (config.model.includes('gemini-3')) {
+    payload.generationConfig.thinkingConfig = { 
+        thinkingLevel: config.thinkingLevels[config.model] || "medium" 
+    };
+} else if (config.model.includes('gemini-2.5')) {
+    let budget = config.thinkingBudgets[config.model] || 1024;
+    if (budget < 128) budget = 128; // API 전송 전 최솟값 보정
+    payload.generationConfig.thinkingConfig = { 
+        thinkingBudget: budget 
+    };
+}
+*/
+    </div>
+
+    <script>
+        function copyContent() {
+            const textToCopy = document.getElementById('contentToCopy').innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                alert('코드가 전체 복사되었습니다!');
+            }).catch(err => {
+                alert('복사 실패: ' + err);
+            });
+        }
+    </script>
+
+</body>
+</html>
