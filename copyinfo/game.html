@@ -93,6 +93,7 @@
 * Visual Novel SVG 엔진 V8
 * ============================================================
 */
+
 const W = 1200;
 const H = 600;
 
@@ -107,7 +108,7 @@ export default {
     const emoCode = url.searchParams.get("emo") || "1";
     const bgNum = url.searchParams.get("bg") || "1";
 
-    const dateTxt = deepDecode(url.searchParams.get("d") || "5월 25일");  
+    const dateTxt = deepDecode(url.searchParams.get("d") || "2024. 10. 15");  
     const clock = deepDecode(url.searchParams.get("w") || "PM 02:40"); 
     const statusTxt = deepDecode(url.searchParams.get("s") || "❤️ 상태 양호"); 
 
@@ -165,13 +166,20 @@ function getFilters() {
     <defs>
         <style>
           @import url('https://cdn.jsdelivr.net/gh/neodgm/neodgm-webfont@latest/neodgm/style.css');
+          
           .nameTxt { font-family: 'NeoDunggeunmo', sans-serif; font-size: 32px; fill: #FFFFFF; font-weight: normal; text-shadow: 2px 2px 3px rgba(0,0,0,0.8); }
+          
+          /* 앱-웹 호환 무적 개행기믹 사용 (Hanging 모드를 제거해 앱상 공중에 착붙하는 호환을 부숨 => 중앙 중앙점 y포지션 연산처리!!) */
           .dialogTxt { font-family: 'NeoDunggeunmo', sans-serif; font-size: 34px; fill: #fdfdfd; text-shadow: 2.5px 2.5px 4px rgba(0,0,0,0.85); line-height:1.6;}
+          
           .miniDateTxt { font-family: 'NeoDunggeunmo', sans-serif; font-size: 19px; fill: #dddddd; text-anchor: middle;}
           .miniTimeTxt { font-family: 'NeoDunggeunmo', sans-serif; font-size: 28px; fill: #ffffff; font-weight: bold; text-anchor: middle; }
           .miniStatTxt { font-family: 'NeoDunggeunmo', sans-serif; font-size: 22px; fill: #c0f2a9; text-anchor: middle; }
+          
+          /* 껍질 테두리 확실한 쯔꾸르 검반투명 테두리 상자 그대로 탑재. */
           .uiBox { fill: rgba(18, 18, 18, 0.92); stroke: rgba(255,255,255, 0.85); stroke-width: 3.2; }
         </style>
+
         <filter id="ef1_bw">
             <feColorMatrix type="saturate" values="0.1" result="mono"/>
             <feComponentTransfer><feFuncR type="linear" slope="0.8"/><feFuncG type="linear" slope="0.8"/><feFuncB type="linear" slope="0.8"/></feComponentTransfer>
@@ -192,7 +200,10 @@ function getFilters() {
 
 function buildNovelSVG(bgImage, charImage, cname, message, effectMode, dateTxt, clock, statusTxt) {
   
+  // 👉 호환모드를 위한 안전 SVG 도끼질 (폭/사이즈 파싱 알고리즘) 재적용! 가로 넓이가 압도적이므로 넉넉하게 폭 맞춤 (W - 90기준 연산) 
   const wrappedBody = wrapText(message, W - 110, 34); 
+
+  // 자동 사이즈 확장(오차없이 딱 잡아줌)  최소 2단~ 늘어날시 추가 길이부여 박스 형성 (앱에서 투명해짐 완전삭제 보장형!!)
   const dialogContentH = Math.max((wrappedBody.length * 48), 60); 
   const dialogH = dialogContentH + 50; 
   
@@ -201,6 +212,7 @@ function buildNovelSVG(bgImage, charImage, cname, message, effectMode, dateTxt, 
   if (effectMode === "1") fullLayerFilter = 'filter="url(#ef1_bw)"';
   else if (effectMode === "3") fullLayerFilter = 'filter="url(#ef3_RGB_Glitch)"';
 
+  // [ 배경스킨 & 100% 착붙이 스탠드 캐릭터 영역 세팅 완료! ] 
   let layer01 = `<g ${bgFilter}>`;
   if (bgImage) layer01 += `<image href="${bgImage}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" filter="brightness(0.7)"/>`;
   else layer01 += `<rect width="${W}" height="${H}" fill="#111111" />`;
@@ -209,11 +221,18 @@ function buildNovelSVG(bgImage, charImage, cname, message, effectMode, dateTxt, 
   let layer02 = "";
   if (charImage) layer02 = `<image href="${charImage}" x="15" y="0" width="${W - 30}" height="${H}" preserveAspectRatio="xMidYMid meet"/>`;
 
+  // 박스는 H 대비 딱 맞고 깔쌈한 곳인 최하단 조금 위에 자리 시킵니다.
   const dialogY = H - dialogH - 12; 
+
+  // ✔️ 날짜 박스의 [피드백 적용 영역] ✔️
+  // 간격을 마진 주고 숨구멍(Padding 펑펑!)이 있게 크게 넓힙니다 (높이를 기존보다 무려 대폭 넓힘 -> height = 120 (기존105))
   let rightBoxW = Math.max((escXml(dateTxt).length * 11), (escXml(clock).length * 15.5), (escXml(statusTxt).length * 20)) + 65; 
 
+  // ✔️ 무결점 대사 Y 간격 (가내수공업용 코드라 아주 확실히 좌표로 앱이든 뭐든간에 그냥 못 움직이게 못 박습니다.)
+  // 기준 y점(대사시작 y + 42부터 아래쪽 방향(dy) 로 촥! 늘리기) 
   let lineRender = "";
   wrappedBody.forEach((line, i) => {
+    // 위 공백 약간 줌! 행간 48간격 부여. 앱이나 피시 상관없음 
     lineRender += `<tspan x="45" dy="${i === 0 ? '0' : '48'}">${escXml(line)}</tspan>`; 
   });
 
@@ -227,28 +246,46 @@ ${getFilters()}
   ${layer02}
 </g>
 
+<!-- ========================= UI 고전 스타일 + 숨통 조율 ============================ -->
+
+<!-- 우상단 시간 / 정보 모니터판! 상하 간격 피드백 시원하게 전부 맞추고 높이 조절하여 반영함! -->
+<!-- 레이어 위치/구분감 완전 굿 👍 높이 증가 125 적용. 간격 다벌려놓음-->
 <g transform="translate(${W - rightBoxW - 20}, 20)">
   <rect x="0" y="0" width="${rightBoxW}" height="125" class="uiBox" rx="8" />
+  
   <text x="${rightBoxW/2}" y="32" class="miniDateTxt">${escXml(dateTxt)}</text>
+  <!-- 위,아래 글자와 부딫히지않고 분할선과 확 분리되게끔 위치. y = 62 쯤 세팅. -->
   <text x="${rightBoxW/2}" y="63" class="miniTimeTxt">${escXml(clock)}</text>
+  
+  <!-- 선 간격 시간글씨와 충분히 넓힘 -->
   <line x1="22" y1="84" x2="${rightBoxW - 22}" y2="84" stroke="rgba(255,255,255,0.7)" stroke-width="1.8" stroke-dasharray="6,4"/>
+  
+  <!-- 상태문자는 100을 넘어 끝인 (마진) 위치 안까지 끌고 내려옴! 하단이랑 살짝 여백 보입니다.  -->
   <text x="${rightBoxW/2}" y="107" class="miniStatTxt">${escXml(statusTxt)}</text>
 </g>
 
+<!-- === 다이얼로그 & 캐릭터 패널 씬 파츠 (에러박스 날리고 복구 완)=== -->
 <rect x="18" y="${dialogY}" width="${W - 36}" height="${dialogH}" class="uiBox" rx="8" />
 <polygon points="${W - 65}, ${dialogY+dialogH-35} ${W - 45}, ${dialogY+dialogH-35} ${W - 55}, ${dialogY+dialogH-18}" fill="#FFB703"/>
 
+<!-- 완전히 분리돼서 상단 박스와 합체되는 완벽비율 마커뱃지 UI! -->
 <rect x="35" y="${dialogY - 50}" width="${escXml(cname).length * 30 + 55}" height="50" class="uiBox" rx="7" />
 <text x="62.5" y="${dialogY - 14}" class="nameTxt">${escXml(cname)}</text>
 
+
+<!-- 본 대사창 출력. 어떤 에러도 불통인 고전 수학 배열 도끼 파서 모드 SVG 입니다! 글자가 투명화 되는 오류 완전삭제  -->
+<!-- 텍스트 기준값: 앱 오류의 메인이던 Baseline 강제 hanging(디버깅 불가 CSS명령어) 전부 파괴. 기준좌표 픽스 시킴 -->
 <text x="50" y="${dialogY + 52}" class="dialogTxt">
    ${lineRender}
 </text>
+<!-- ========================= END UI ============================ -->
 
 </svg>`;
+  
   return template;
 }
 
+// ------ 웹뷰 파편화 앱 렌더러에 살아남는 "원초적 가내수공업형 SVG 문자너비 측정 파서!" ====== //
 function charWidthPx(ch, fontSize) {
   if (/[\uAC00-\uD7A3\u3131-\u318E\u4E00-\u9FA5]/.test(ch)) return fontSize * 1.05; 
   if (/[A-Z]/.test(ch)) return fontSize * 0.76;
