@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>svg (2)</title>
+</head>
+<body>
+
+    <!-- 디자인을 모두 제거한 날것의 복사 버튼 -->
+    <button onclick="copyContent()" style="padding: 10px; font-size: 16px; font-weight: bold; cursor: pointer;">
+        [전체 복사]
+    </button>
+    <br><br>
+
+    <!-- 읽기 전용으로 화면에 표시될 투박하고 큰 텍스트 박스 -->
+    <textarea id="contentToCopy" readonly spellcheck="false" 
+              style="width: 100%; height: 500px; white-space: pre; font-family: monospace; padding: 10px;"></textarea>
+
+    <!-- (비밀 창고 구역) 이 안에는 워커 원본 자바스크립트를 붙여넣으세요!! 특수기호 보호 완료 -->
+    <script id="sourceCode" type="text/plain">
+
+/**
+* ============================================================
+* Custom SVG Chat Worker (GARMIN inReach MINI 2 Rugged Theme V7)
+* - 상하 여백 제거 (좌우 여백만 유지)
+* - 단말기 화면비 완벽 고정
+* - 메시지 오버플로우 시 하단 정렬 및 상단 클리핑(스크롤 연출) 적용
+* - [Fixed] 백슬래시(\d) 증발 버그 복구 및 KV/R2 바인딩 의존성 제거 안전 패치
+* ============================================================
+*/
+
+const W = 390;
+const BEZEL = 30;
+const SCREEN_W = W - (BEZEL * 2);
+const FIXED_SCREEN_H = 400; 
+const FIXED_TOTAL_H = FIXED_SCREEN_H + (BEZEL * 2);
+
+const FONT_STACK = "'Impact', 'Arial Black', 'Microsoft YaHei', 'Meiryo', sans-serif";
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (url.pathname.includes('favicon.ico')) return new Response(null, { status: 204 });
+
+    const raw = url.searchParams.get("m") || "";
+    const time = url.searchParams.get("t") || "";
+    const name = url.searchParams.get("name") || "";
+    const bat = url.searchParams.get("b") || "";
+    const net = url.searchParams.get("n") || "";
+
+    const messages = parseMessages(raw);
+    if (!messages.length) return errorSvg("메시지가 없습니다. (m=1,텍스트 형식인지 확인)");
+
+    const codes = [...new Set(messages.map(m => m.code).filter(c => c !== "0"))];
+    const avatarMap = {};
+
+    await Promise.all(codes.map(async code => {
+      avatarMap[code] = await getAvatar(env, code);
+    }));
+
+    const headerCode = messages.find(m => m.code !== "0")?.code ?? null;
+    const headerAvatar = headerCode ? (avatarMap[headerCode] ?? null) : null;
+
+    const svg = buildSVG(messages, avatarMap, headerAvatar, time, name, bat, net);
+    return new Response(svg, {
+      headers: {
+        "Content-Type": "image/svg+xml; charset=utf-8",
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
+  },
+};
+
+/* ── 아바타 로드 (KV 캐시 → R2 폴백) [안전 가드 씌움!] ── */
+async function getAvatar(env, code) {
+  // 💡 KV나 AVATARS 바인딩을 안 했어도 서버가 안 터지게 바로 컷팅!
+  if (!env || !env.KV || !env.AVATARS) return null; 
+  
+  try {
+    const kvKey = `avatar:${code}`;
+    const cached = await env.KV.get(kvKey);
+    if (cached) return cached;
+    for (const [ext, mime] of [["png", "image/png"], ["jpg", "image/jpeg"], ["webp", "image/webp"]]) {
+      const obj = await env.AVATARS.get(`avatars/${code}.${ext}`);
+      if (obj) {
+        const data = `data:${mime};base64,${arrayBufferToBase64(await obj.arrayBuffer())}`;
+        await env.KV.put(kvKey, data);
+        return data;
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+/* ── 메시지 파싱 [백슬래시 복원 완료!] ── */
+function parseMessages(raw) {
+  const messages = [];
+  let decodedRaw = "";
+  try { decodedRaw = decodeURIComponent(raw); } 
+  catch(e) { decodedRaw = raw; }
+  
+  const parts = decodedRaw.split(",");
+  let i = 0;
+  while (i < parts.length - 1) {
+    const code = parts[i].trim();
+    // 💡 d -> \d 로 완벽하게 복구!!
+    if (/^\d+$/.test(code)) {
+      let j = i + 1;
+      const textParts = [];
+      while (j < parts.length && !/^\d+$/.test(parts[j].trim())) {
+        textParts.push(parts[j]);
+        j++;
+      }
+      messages.push({ code, text: textParts.join(",") });
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  return messages;
+}
+
+function arrayBufferToBase64(buffer) {
+  let bin = "";
+  new Uint8Array(buffer).forEach(b => (bin += String.fromCharCode(b)));
+  return btoa(bin);
+}
+
+/* ── SVG 렌더링 영역 ── */
+function buildSVG(messages, avatarMap, headerAvatar, time, name, bat, net) {
+  const defaultName = name || "USER";
+
+  let batteryParam = 85;
+  if (bat && !isNaN(bat)) {
+    batteryParam = Math.min(100, Math.max(0, parseInt(bat, 10)));
+  } else if (!bat) {
+    const totalTextLen = messages.reduce((acc, m) => acc + m.text.length, 0);
+    batteryParam = Math.max(10, 100 - (totalTextLen % 90));
+  }
+  const batteryFillWidth = (19 * batteryParam) / 100;
+
+  let netParam = 4;
+  if (net && !isNaN(net)) {
+    netParam = Math.min(4, Math.max(0, parseInt(net, 10)));
+  }
+  const netColors = [
+    netParam >= 1 ? "#DEDEDE" : "#333333",
+    netParam >= 2 ? "#DEDEDE" : "#333333",
+    netParam >= 3 ? "#DEDEDE" : "#333333",
+    netParam >= 4 ? "#DEDEDE" : "#333333",
+  ];
+
+  const maxLen = 17;
+  const bubbleGaps = 20;
+  const msgList = [];
+  let currentY = 0;
+
+  for (const m of messages) {
+    const isMe = m.code === "0";
+    const lines = wrapText(m.text, maxLen);
+
+    const boxH = lines.length * 28 + 24;
+    const maxLineCharLen = Math.max(...lines.map(l => charLen(l)));
+    const boxW = Math.min(SCREEN_W - 20, Math.max(80, maxLineCharLen * 14.5 + 30));
+
+    msgList.push({ isMe, lines, boxW, boxH, y: currentY });
+    currentY += boxH + bubbleGaps;
+  }
+
+  const CHAT_START_Y = 85;
+  const VISIBLE_H = FIXED_SCREEN_H - CHAT_START_Y - 15;
+  const totalMsgH = Math.max(0, currentY - bubbleGaps);
+  const shiftY = Math.max(0, totalMsgH - VISIBLE_H);
+
+  let renderedMessages = "";
+  for (const msg of msgList) {
+    const finalY = BEZEL + CHAT_START_Y + msg.y - shiftY;
+
+    if (msg.isMe) {
+      const boxX = SCREEN_W - msg.boxW - 10;
+      renderedMessages += `
+      <rect x="${boxX + BEZEL}" y="${finalY}" width="${msg.boxW}" height="${msg.boxH}" rx="8" fill="#DEDEDE" stroke="#DEDEDE" stroke-width="2"/>
+      `;
+      msg.lines.forEach((l, i) => {
+        renderedMessages += `<text x="${boxX + 15 + BEZEL}" y="${finalY + 28 + i * 28}" fill="#111111" font-family="${FONT_STACK}" font-size="20" font-weight="bold">${escXml(l)}</text>`;
+      });
+    } else {
+      const boxX = 10;
+      renderedMessages += `<rect x="${boxX + BEZEL}" y="${finalY}" width="${msg.boxW}" height="${msg.boxH}" rx="8" fill="#111111" stroke="#DEDEDE" stroke-width="1.5"/>`;
+      msg.lines.forEach((l, i) => {
+        renderedMessages += `<text x="${boxX + 15 + BEZEL}" y="${finalY + 28 + i * 28}" fill="#DEDEDE" font-family="${FONT_STACK}" font-size="20" font-weight="bold">${escXml(l)}</text>`;
+      });
+    }
+  }
+
+  const scaledH = (FIXED_TOTAL_H * 0.7).toFixed(1);
+  const dx = ((W - (W * 0.7)) / 2).toFixed(1);
+  const dy = 0;
+
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${scaledH}" viewBox="0 0 ${W} ${scaledH}">
+<defs>
+<linearGradient id="bezelGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+<stop offset="0%" stop-color="#282A2E" />
+<stop offset="50%" stop-color="#3A3C42" />
+<stop offset="100%" stop-color="#1E2024" />
+</linearGradient>
+
+<clipPath id="chatClip">
+<rect x="${BEZEL}" y="${BEZEL + 72}" width="${SCREEN_W}" height="${FIXED_SCREEN_H - 72}" />
+</clipPath>
+</defs>
+
+<g transform="translate(${dx}, ${dy}) scale(0.7)">
+
+<rect x="0" y="0" width="${W}" height="${FIXED_TOTAL_H}" rx="16" fill="url(#bezelGrad)" stroke="#111111" stroke-width="4"/>
+<rect x="${BEZEL - 8}" y="${BEZEL - 8}" width="${SCREEN_W + 16}" height="${FIXED_SCREEN_H + 16}" rx="8" fill="#0A0A0C" stroke="#1A1C1E" stroke-width="3"/>
+<rect x="${BEZEL}" y="${BEZEL}" width="${SCREEN_W}" height="${FIXED_SCREEN_H}" fill="#111111" rx="4"/>
+
+<g transform="translate(${BEZEL}, ${BEZEL})">
+<text x="15" y="19" fill="#DEDEDE" font-family="${FONT_STACK}" font-size="16" font-weight="bold" text-anchor="start">${escXml(time || "12:00")}</text>
+
+<rect x="${SCREEN_W - 86}" y="16" width="4" height="5" fill="${netColors[0]}"/>
+<rect x="${SCREEN_W - 79}" y="12" width="4" height="9" fill="${netColors[1]}"/>
+<rect x="${SCREEN_W - 72}" y="8" width="4" height="13" fill="${netColors[2]}"/>
+<rect x="${SCREEN_W - 65}" y="3" width="4" height="18" fill="${netColors[3]}"/>
+
+<rect x="${SCREEN_W - 45}" y="6" width="28" height="14" rx="2" fill="none" stroke="#DEDEDE" stroke-width="2"/>
+<rect x="${SCREEN_W - 15}" y="9" width="3" height="8" rx="1" fill="#DEDEDE"/>
+<rect x="${SCREEN_W - 43}" y="8" width="${batteryFillWidth}" height="10" rx="1" fill="#DEDEDE"/>
+
+<line x1="10" y1="30" x2="${SCREEN_W - 10}" y2="30" stroke="#333333" stroke-width="2"/>
+<text x="${SCREEN_W / 2}" y="56" fill="#DEDEDE" font-family="${FONT_STACK}" font-size="18" font-weight="bold" text-anchor="middle" letter-spacing="1.5">${escXml(defaultName)}</text>
+<line x1="10" y1="70" x2="${SCREEN_W - 10}" y2="70" stroke="#333333" stroke-width="2"/>
+</g>
+
+<g clip-path="url(#chatClip)">
+${renderedMessages}
+</g>
+
+</g>
+</svg>
+`.trim();
+}
+
+function charLen(str) {
+  let len = 0;
+  for (let i = 0; i < str.length; i++) {
+    len += str.charCodeAt(i) > 255 ? 1.8 : 1;
+  }
+  return len;
+}
+
+function wrapText(text, maxLen) {
+  const lines = [];
+  let currentLine = "";
+  let currentLen = 0;
+
+  for (let char of text) {
+    const l = char.charCodeAt(0) > 255 ? 1.8 : 1;
+    if (currentLen + l > maxLen) {
+      lines.push(currentLine);
+      currentLine = char;
+      currentLen = l;
+    } else {
+      currentLine += char;
+      currentLen += l;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
+
+function escXml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function errorSvg(msg) {
+  return new Response(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="390" height="60"><rect width="390" height="60" fill="#fee" rx="8"/><text x="195" y="35" text-anchor="middle" font-size="15" fill="#CC0000">${escXml(msg)}</text></svg>`,
+    { headers: { "Content-Type": "image/svg+xml" } }
+  );
+}
+      
+    </script>
+
+    <!-- 자동 로드 & 전체복사 스크립트 기능만 딱 존재함 -->
+    <script>
+        // 페이지가 열리면 자동으로 코드를 깨짐없이 textarea 에 세팅
+        document.getElementById('contentToCopy').value = document.getElementById('sourceCode').textContent.trim();
+
+        // 버튼 클릭 시 텍스트 전체 블럭 및 복사 (모바일 사파리 호환 코드 포함)
+        function copyContent() {
+            const copyText = document.getElementById('contentToCopy');
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(copyText.value).then(() => {
+                alert('✔ 전체 복사가 완료되었습니다!');
+            }).catch(err => {
+                alert('복사 실패: ' + err);
+            });
+        }
+    </script>
+</body>
+</html>
