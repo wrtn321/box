@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>gemini tokenizer</title>
+  <style>
+    :root {
+      --primary-color: #1a73e8;
+      --bg-color: #f8f9fa;
+      --border-color: #dadce0;
+      --text-color: #202124;
+      --secondary-text: #5f6368;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      height: 100vh;
+      box-sizing: border-box;
+      gap: 20px;
+    }
+
+    /* 왼쪽: 입력창 영역 */
+    .editor-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      max-width: 70%;
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 1.2rem;
+      color: var(--text-color);
+    }
+
+    /* 입력창 (자동으로 늘어남) */
+    textarea {
+      width: 100%;
+      min-height: 200px;
+      padding: 15px;
+      font-size: 16px;
+      font-family: inherit;
+      line-height: 1.5;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      resize: none; /* JS로 크기 조절 */
+      box-sizing: border-box;
+      outline: none;
+      overflow-y: hidden; /* 스크롤바 숨기고 늘어나게 */
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      border-color: var(--primary-color);
+    }
+
+    /* 하단 상태바 및 버튼 */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 15px;
+    }
+
+    .stats {
+      font-size: 14px;
+      color: var(--secondary-text);
+      display: flex;
+      gap: 15px;
+    }
+
+    .stat-badge {
+      background: var(--bg-color);
+      padding: 5px 10px;
+      border-radius: 15px;
+      border: 1px solid var(--border-color);
+    }
+
+    button {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #1557b0;
+    }
+    
+    button:disabled {
+      background-color: #a0c1f2;
+      cursor: not-allowed;
+    }
+
+    /* 오른쪽: 저장된 목록 영역 */
+    .sidebar {
+      width: 300px;
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .saved-list {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .saved-item {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      position: relative;
+    }
+
+    .saved-item:hover {
+      background-color: var(--bg-color);
+    }
+
+    .saved-item-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-right: 20px;
+    }
+
+    .saved-item-info {
+      font-size: 12px;
+      color: var(--secondary-text);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .delete-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: none;
+      color: #d93025;
+      padding: 0;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    
+    .delete-btn:hover {
+      background: none;
+      color: #a50e0e;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 왼쪽: 프롬프트 에디터 -->
+  <div class="editor-container">
+    <h2>📝 프롬프트 작성</h2>
+    <textarea id="promptInput" placeholder="여기에 프롬프트를 입력하세요..."></textarea>
+    
+    <div class="status-bar">
+      <div class="stats">
+        <span class="stat-badge" id="charCount">글자 수: 0</span>
+        <span class="stat-badge" id="tokenCount">토크나이저 로딩중... (최초 1회 약 2MB)</span>
+      </div>
+      <button id="saveBtn" disabled>저장하기</button>
+    </div>
+  </div>
+
+  <!-- 오른쪽: 저장된 목록 -->
+  <div class="sidebar">
+    <h2>📁 내 프롬프트 보관함</h2>
+    <div class="saved-list" id="savedList">
+      <!-- 저장된 아이템이 여기에 추가됩니다 -->
+    </div>
+  </div>
+
+  <!-- 라이브러리 및 스크립트 -->
+  <script type="module">
+    // 1. 가벼운 브라우저용 머신러닝 라이브러리 (Transformers.js) 불러오기
+    import { env, AutoTokenizer } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.0';
+    
+    // 로컬 파일시스템 접근 방지 (브라우저에서만 실행되게 설정)
+    env.allowLocalModels = false;
+    
+    let tokenizer = null;
+    let debounceTimer;
+    let currentTokensCount = 0;
+
+    // DOM 요소 선택
+    const textarea = document.getElementById('promptInput');
+    const charCountEl = document.getElementById('charCount');
+    const tokenCountEl = document.getElementById('tokenCount');
+    const saveBtn = document.getElementById('saveBtn');
+    const savedListEl = document.getElementById('savedList');
+
+    // 2. 토크나이저 초기화 (Gemma/Gemini 호환 토크나이저 사용)
+    async function initTokenizer() {
+      try {
+        // gemma-2b의 토크나이저 설정 파일(약 2~4MB)만 다운로드하여 캐시합니다. (최초 1회만 다운)
+        tokenizer = await AutoTokenizer.from_pretrained('Xenova/gemma-2b-it');
+        tokenCountEl.innerText = '토큰 수: 0';
+        saveBtn.disabled = false; // 로딩 완료 후 저장 버튼 활성화
+      } catch (error) {
+        tokenCountEl.innerText = '토크나이저 로딩 실패';
+        console.error(error);
+      }
+    }
+
+    // 3. 텍스트 입력 시 이벤트 (글자수 세기, 토큰 세기, 크기 조절)
+    textarea.addEventListener('input', function() {
+      const text = this.value;
+      
+      // 글자 수 업데이트
+      charCountEl.innerText = `글자 수: ${text.length}`;
+      
+      // 텍스트 길이에 맞춰 textarea 높이 자동 조절
+      this.style.height = 'auto';
+      this.style.height = this.scrollHeight + 'px';
+
+      // 토큰 수 업데이트 (타자 칠 때마다 렉 걸리는 걸 방지하기 위해 0.3초 딜레이 적용: 디바운싱)
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        if (!tokenizer) return;
+        
+        if (text.trim() === "") {
+          currentTokensCount = 0;
+          tokenCountEl.innerText = `토큰 수: 0`;
+          return;
+        }
+
+        // 로컬 메모리에서 즉시 토큰 계산
+        const tokens = await tokenizer(text);
+        currentTokensCount = tokens.input_ids.length;
+        tokenCountEl.innerText = `토큰 수: ${currentTokensCount}`;
+      }, 300);
+    });
+
+    // 4. 로컬 스토리지 관련 로직
+    const STORAGE_KEY = 'gemini_saved_prompts';
+
+    function getSavedPrompts() {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    }
+
+    function savePromptsToStorage(prompts) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(prompts));
+    }
+
+    // 목록 그리기
+    function renderSavedList() {
+      const prompts = getSavedPrompts();
+      savedListEl.innerHTML = ''; // 초기화
+
+      if (prompts.length === 0) {
+        savedListEl.innerHTML = '<div style="color:#5f6368; font-size:14px; text-align:center; margin-top:20px;">저장된 프롬프트가 없습니다.</div>';
+        return;
+      }
+
+      // 최신순으로 정렬해서 보여주기
+      prompts.slice().reverse().forEach(prompt => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'saved-item';
+        
+        // 클릭하면 에디터로 불러오기
+        itemDiv.onclick = () => loadPrompt(prompt);
+
+        itemDiv.innerHTML = `
+          <div class="saved-item-title">${prompt.title}</div>
+          <div class="saved-item-info">
+            <span>📅 ${prompt.timestamp}</span>
+            <span>🪙 ${prompt.tokens}토큰</span>
+          </div>
+          <button class="delete-btn" title="삭제">×</button>
+        `;
+
+        // 삭제 버튼 클릭 이벤트 (버블링 방지)
+        const deleteBtn = itemDiv.querySelector('.delete-btn');
+        deleteBtn.onclick = (e) => {
+          e.stopPropagation(); // 클릭 시 불러오기 이벤트 방지
+          if (confirm(`'${prompt.title}' 프롬프트를 삭제하시겠습니까?`)) {
+            deletePrompt(prompt.id);
+          }
+        };
+
+        savedListEl.appendChild(itemDiv);
+      });
+    }
+
+    // 프롬프트 저장하기
+    saveBtn.addEventListener('click', () => {
+      const text = textarea.value.trim();
+      if (!text) {
+        alert("저장할 내용이 없습니다!");
+        return;
+      }
+
+      const title = prompt("저장할 제목을 입력하세요", "새 프롬프트");
+      if (title === null) return; // 취소 누름
+
+      const now = new Date();
+      const timestamp = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      const newPrompt = {
+        id: Date.now().toString(), // 고유 ID 부여
+        title: title || "제목 없음",
+        text: text,
+        tokens: currentTokensCount,
+        timestamp: timestamp
+      };
+
+      const prompts = getSavedPrompts();
+      prompts.push(newPrompt);
+      savePromptsToStorage(prompts);
+      
+      renderSavedList();
+    });
+
+    // 프롬프트 불러오기
+    function loadPrompt(promptObj) {
+      textarea.value = promptObj.text;
+      
+      // 입력 이벤트 강제 발생시켜서 높이 및 카운트 재조정
+      textarea.dispatchEvent(new Event('input')); 
+    }
+
+    // 프롬프트 삭제하기
+    function deletePrompt(id) {
+      let prompts = getSavedPrompts();
+      prompts = prompts.filter(p => p.id !== id);
+      savePromptsToStorage(prompts);
+      renderSavedList();
+    }
+
+    // 5. 실행 시 초기화
+    renderSavedList();
+    initTokenizer();
+
+  </script>
+</body>
+</html>
