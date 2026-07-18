@@ -116,11 +116,10 @@
 <body>
 
   <div class="editor-container">
-    <h2>📝 Gemini & Claude API 프롬프트 에디터</h2>
+    <h2>📝 Gemini & Claude API 토큰 측정기</h2>
 
     <div class="settings-row">
       <input id="geminiApiKey" type="password" placeholder="Gemini API Key">
-      <input id="claudeApiKey" type="password" placeholder="Claude API Key (비워두면 Worker key 사용)">
       <button id="saveKeyBtn" class="btn-secondary">키 저장</button>
       <select id="modelSelect">
         <optgroup label="Gemini">
@@ -133,9 +132,17 @@
       </select>
     </div>
     
-    <!-- Claude 선택 시 표시될 안내 문구 -->
+<!-- Claude 선택 시 표시될 안내 문구 -->
     <div id="claudeNotice" class="notice-text">
-      ⚠️ Claude 모델은 Cloudflare Workers를 통해 토큰을 계산합니다. (서버 내 로그 수집은 비활성화되어 있습니다)
+      ⚠️ Claude 모델은 Vercel 서버를 통해 토큰을 계산합니다. (서버 내 사용자 로그 및 데이터 수집은 비활성화되어 있습니다)
+    </div>
+
+    <!-- Gemini 선택 시 표시될 안내 문구 (새로 추가) -->
+    <div id="geminiNotice" class="notice-text">
+      ⚠️ Gemini는 Google API 키가 필요하며, 브라우저에서 직접 호출되므로 서버에 저장되지 않습니다.<br>
+      단, <b>토큰 측정(countTokens API) 호출 자체에도 요금이 발생</b>합니다.<br>
+      (대부분의 Gemini 모델은 동일한 토크나이저를 사용하므로, 측정 비용을 최소화하기 위해 가장 저렴한 <code>gemini-3.1-flash-lite</code>를 기준으로 사용합니다.)<br>
+      무료로 토큰 수를 확인하시려면 <a href="https://aistudio.google.com/" target="_blank" style="color:var(--primary-color); text-decoration:none; font-weight:bold;">Google AI Studio</a> 채팅창에 입력해 보세요.
     </div>
 
     <textarea id="promptInput" placeholder="여기에 프롬프트를 입력하세요..."></textarea>
@@ -168,10 +175,10 @@
     };
 
     const geminiApiInput = document.getElementById("geminiApiKey");
-    const claudeApiInput = document.getElementById("claudeApiKey");
     const saveKeyBtn = document.getElementById("saveKeyBtn");
     const modelSelect = document.getElementById("modelSelect");
     const claudeNotice = document.getElementById("claudeNotice");
+    const geminiNotice = document.getElementById("geminiNotice");
     
     const textarea = document.getElementById("promptInput");
     const charCountEl = document.getElementById("charCount");
@@ -184,7 +191,6 @@
     
     const STORAGE_KEY = 'gemini_api_prompts';
     const GEMINI_KEY_STORAGE = 'gemini_api_key';
-    const CLAUDE_KEY_STORAGE = 'claude_api_key';
 
     let isCalculated = false;
     let currentTokens = 0;
@@ -192,18 +198,23 @@
     let currentCostKrw = 0;
 
     geminiApiInput.value = localStorage.getItem(GEMINI_KEY_STORAGE) || "";
-    claudeApiInput.value = localStorage.getItem(CLAUDE_KEY_STORAGE) || "";
 
     saveKeyBtn.addEventListener('click', () => {
       localStorage.setItem(GEMINI_KEY_STORAGE, geminiApiInput.value.trim());
-      localStorage.setItem(CLAUDE_KEY_STORAGE, claudeApiInput.value.trim());
-      alert("API Key들이 저장되었습니다.");
+      alert("API Key가 저장되었습니다.");
     });
 
-    // Claude 모델 선택 여부 확인 및 문구 표시
+    // 모델 선택 여부 확인 및 문구 표시
     function updateModelNotice() {
       const isClaude = modelSelect.options[modelSelect.selectedIndex].parentNode.label === "Claude";
-      claudeNotice.style.display = isClaude ? "block" : "none";
+      
+      if (isClaude) {
+        claudeNotice.style.display = "block";
+        geminiNotice.style.display = "none";
+      } else {
+        claudeNotice.style.display = "none";
+        geminiNotice.style.display = "block";
+      }
     }
 
     // 초기 로딩 시 문구 업데이트
@@ -235,7 +246,6 @@
 
       let key = "";
       if (isClaude) {
-        key = claudeApiInput.value.trim(); 
       } else {
         key = geminiApiInput.value.trim();
         if (!key) return alert("Gemini API Key를 먼저 입력해주세요.");
@@ -251,12 +261,11 @@
         let totalTokens = 0;
 
         if (isClaude) {
-          const CLOUDFLARE_WORKER_URL = "https://claudetokenizer.12321.uk";
-
-          const response = await fetch(CLOUDFLARE_WORKER_URL, {
+          // Cloudflare 주소 대신 Vercel 내부 API 주소로 변경
+          const response = await fetch("/api/claude", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model: model, text: text, key: key })
+            body: JSON.stringify({ model: model, text: text }) // key 전송 안 함!
           });
 
           const data = await response.json();
